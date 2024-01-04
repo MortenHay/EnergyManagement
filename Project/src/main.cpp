@@ -12,10 +12,14 @@ double RC;                                         // Time constant for the low 
 
 int interruptPin = 0; // Interrupt pin for the frequency counter
 
+// Function declarations
+void timeStamp();
+double averageFrequency();
+
 void setup()
 {
   Serial.begin(9600); // Serial communication rate
-  for (int i = 0; i < avgSampleLength; i++)
+  for (unsigned int i = 0; i < avgSampleLength; i++)
   {
     // We initialize the time stamp array to 0
     timeArray[i] = 0;
@@ -58,7 +62,7 @@ double averageFrequency()
   copy(timeArray, timeArray + avgSampleLength, timeArraySnapshot);
 
   // Find highest and lowest values in snapshot
-  int i = 0;
+  unsigned int i = 0;
   while (i < avgSampleLength && timeArray[i] < timeArray[i + 1])
   {
     /* The highest value will always preceed the lowest value in the array
