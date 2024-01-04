@@ -11,12 +11,14 @@ const double pi = 3.141592653589793;               // constant pi
 double RC;                                         // Time constant for the low pass filter
 const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned long
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
+const unsigned long ulongThreasholdTest = 0;
 
 int interruptPin = 0; // Interrupt pin for the frequency counter
 
 // Function declarations
 void timeStamp();
 double averageFrequency();
+void resetTimeArray();
 
 void setup()
 {
@@ -29,6 +31,7 @@ void setup()
   pinMode(interruptPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   // RC = 1 / (2 * pi * cutOffFrequency);                                     // We calculate the time constant for the low pass filter
+  // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
 }
 
 void loop()
@@ -45,7 +48,7 @@ void loop()
 void timeStamp()
 {
   noInterrupts();
-  timeArray[currentIndex] = micros(); // Save current time stamp in the array
+  timeArray[currentIndex] = micros() + ulongThreasholdTest; // Save current time stamp in the array
 
   if (currentIndex == avgSampleLength) // Reset when the array is full
   {
@@ -98,3 +101,29 @@ double averageFrequency()
   // We calculate the running average of the frequency
   return double(1000000) * (avgSampleLength - 1) / (highest - lowest);
 }
+
+void resetTimeArray()
+{
+  detachInterrupt(digitalPinToInterrupt(interruptPin));
+  // We reset the time stamp array
+  for (unsigned int i = 0; i < avgSampleLength; i++)
+  {
+    timeArray[i] = 0;
+  }
+  attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
+}
+
+void AdcBooster()
+{
+  ADC->CTRLA.bit.ENABLE = 0; // Disable ADC
+  while (ADC->STATUS.bit.SYNCBUSY == 1)
+    ;                                            // Wait for synchronization
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER_DIV16 |   // Divide Clock by 16.
+                   ADC_CTRLB_RESSEL_10BIT;       // Result on 10 bits
+  ADC->AVGCTRL.reg = ADC_AVGCTRL_SAMPLENUM_1 |   // 1 sample
+                     ADC_AVGCTRL_ADJRES(0x00ul); // Adjusting result by 0
+  ADC->SAMPCTRL.reg = 0x00;                      // Sampling Time Length = 0
+  ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
+  while (ADC->STATUS.bit.SYNCBUSY == 1)
+    ; // Wait for synchronization
+} // AdcBooster
