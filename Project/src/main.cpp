@@ -43,7 +43,7 @@ void loop()
 void timeStamp()
 {
   noInterrupts();
-  timeArray[currentIndex] = millis(); // Save current time stamp in the array
+  timeArray[currentIndex] = micros(); // Save current time stamp in the array
 
   if (currentIndex == avgSampleLength) // Reset when the array is full
   {
@@ -80,5 +80,5 @@ double averageFrequency()
   unsigned long lowest = timeArray[i]; // We save the lowest value
 
   // We calculate the running average of the frequency
-  return double(1000) * (avgSampleLength - 1) / (highest - lowest);
+  return double(1000000) * (avgSampleLength - 1) / (highest - lowest);
 }
