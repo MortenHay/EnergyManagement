@@ -9,6 +9,8 @@ unsigned int currentIndex = 0;                     // We create the empty time s
 const double cutOffFrequency = 50;                 // Cut off frequency for the low pass filter
 const double pi = 3.141592653589793;               // constant pi
 double RC;                                         // Time constant for the low pass filter
+const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned long
+const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
 
 int interruptPin = 0; // Interrupt pin for the frequency counter
 
@@ -63,21 +65,35 @@ double averageFrequency()
 
   // Find highest and lowest values in snapshot
   unsigned int i = 0;
-  while (i < avgSampleLength && timeArray[i] < timeArray[i + 1])
+  while (i < avgSampleLength && timeArraySnapshot[i] < timeArraySnapshot[i + 1])
   {
     /* The highest value will always preceed the lowest value in the array
-     This loop finds the index of the highest value*/
-    i++;
+ This loop finds the index of the highest value*/
+
+    if (timeArraySnapshot[i++] >= ulongThreashold)
+    // Check if micros() is in danger of overflowing
+    {
+      for (int j = 0; j < avgSampleLength; j++)
+      {
+        if (timeArraySnapshot[j] >= ulongThreashold * 0.9)
+        {
+          // Subtract all values in the array from ulongMax if they are close to overflowing
+          timeArraySnapshot[j] = ulongMax - timeArraySnapshot[j];
+        }
+      }
+      // Reset the loop if array was changed
+      i = 0;
+    }
   }
 
-  unsigned long highest = timeArray[i++]; // We save the highest value and increment i to the next value
+  unsigned long highest = timeArraySnapshot[i++]; // We save the highest value and increment i to the next value
 
   if (i == avgSampleLength)
   {
     // If the highest value is the last value in the array, we reset i to 0
     i = 0;
   }
-  unsigned long lowest = timeArray[i]; // We save the lowest value
+  unsigned long lowest = timeArraySnapshot[i]; // We save the lowest value
 
   // We calculate the running average of the frequency
   return double(1000000) * (avgSampleLength - 1) / (highest - lowest);
