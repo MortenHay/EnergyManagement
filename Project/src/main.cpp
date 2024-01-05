@@ -1,19 +1,26 @@
 #include <Arduino.h>
 #include <algorithm>
+#include <Timer5.h>
 using namespace std;
 
 const unsigned int avgSampleLength = 250;          // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
-volatile double frequency;                         // Global variable for the frequency
+double frequency;                                  // Global variable for the frequency
 unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
-const double cutOffFrequency = 50;                 // Cut off frequency for the low pass filter
-const double pi = 3.141592653589793;               // constant pi
-double RC;                                         // Time constant for the low pass filter
 const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned long
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
-const unsigned long ulongThreasholdTest = 0;
+unsigned long now;
 
-int interruptPin = 0; // Interrupt pin for the frequency counter
+const int sampleTime = 5;
+const double cutOffFrequency = 50;  // Cut off frequency for the low pass filter
+const float pi = 3.141592653589793; // constant pi
+double alpha;                       // Constant for the low pass filter
+
+const int interruptPin = 0; // Interrupt pin for the frequency counter
+const int DACPin = A0;      // DAC pin for output
+const int ADCPin = A1;      // ADC pin for input
+
+const unsigned long ulongThreasholdTest = 0; // Temp test value
 
 // Function declarations
 void timeStamp();
@@ -28,9 +35,14 @@ void setup()
     // We initialize the time stamp array to 0
     timeArray[i] = 0;
   }
+
+  // pins
   pinMode(interruptPin, INPUT);
+  pinMode(DACPin, OUTPUT);
+  pinMode(ADCPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
-  // RC = 1 / (2 * pi * cutOffFrequency);                                     // We calculate the time constant for the low pass filter
+  double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
+  alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
   // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
 }
 
@@ -41,7 +53,12 @@ void loop()
   Serial.print("Frequency: ");
   Serial.print(frequency);
   Serial.println(" Hz");
-  delay(1000); // We wait 1 second between printing out the running average
+  now = millis();
+  float sample1 = analogRead(ADCPin);
+  while (millis() - now < sampleTime)
+    ;
+  float sample2 = analogRead(ADCPin);
+  now = millis();
 }
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
@@ -111,6 +128,12 @@ void resetTimeArray()
     timeArray[i] = 0;
   }
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
+}
+
+float lowPassFilter(float newSample, float OldSample)
+{
+  float output = newSample * alpha + OldSample * (1 - alpha);
+  return output;
 }
 
 void AdcBooster()
