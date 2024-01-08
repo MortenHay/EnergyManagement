@@ -3,7 +3,7 @@
 #include <Timer5.h>
 using namespace std;
 
-const unsigned int avgSampleLength = 50;           // Number og samples to average over in the running average
+const unsigned int avgSampleLength = 400;          // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 double frequency;                                  // Global variable for the frequency
 unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
@@ -53,11 +53,11 @@ void setup()
 
 void loop()
 {
-  delay(1000);
+  waitMillis(1000);
   frequency = averageFrequency(); // We calculate the running average of the frequency
   // Print out the running average of the frequency
   Serial.print("Frequency: ");
-  Serial.print(frequency);
+  Serial.print(frequency, 5);
   Serial.println(" Hz");
 }
 
@@ -65,16 +65,10 @@ void loop()
 void timeStamp()
 {
   noInterrupts();
-  Serial.println(micros());
   timeArray[currentIndex] = micros();    // Save current time stamp in the array
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
     currentIndex = 0;
-    for (unsigned int i = 0; i < avgSampleLength; i++)
-    {
-      currentIndex = 0;
-      Serial.println(timeArray[i]);
-    }
   }
   interrupts();
 }
