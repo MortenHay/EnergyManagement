@@ -20,7 +20,7 @@ double alpha;                       // Constant for the low pass filter
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
-volatile int val = 0;                //Creating val for analog read
+volatile double val = 0;                //Creating val for analog read
 
 volatile unsigned long Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -179,9 +179,8 @@ void waitMicros(unsigned long us)
 
 
 void Timer5_IRQ() {
-    val = analogRead(ADCPin);
+    val = (double(analogRead(ADCPin))/1023)*3.3;
 
-    val = map(val,0,1023,0,3.3);
     
 }
 
