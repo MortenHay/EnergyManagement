@@ -20,7 +20,7 @@ double alpha;                       // Constant for the low pass filter
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
-int val = 0;                //Creating val for analog read
+volatile int val = 0;                //Creating val for analog read
 
 volatile unsigned long Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -67,7 +67,7 @@ void setup()
 
 void loop()
 {
-  delay(3);
+  waitMillis(500); // We wait 0.005 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
   Serial.print("Value: ");
