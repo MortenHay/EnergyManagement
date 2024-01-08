@@ -2,7 +2,20 @@
 #include <algorithm>
 #include <Timer5.h>
 #include <api/Print.h>
+#include <LiquidCrystal.h>
 using namespace std;
+
+// Tester om lcd kan bruges
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+const int switchPin = 6;
+int switchState = 0;
+int reply;
+
+//Yderligere kode til lcd
+
+
+
+
 
 const unsigned int avgSampleLength = 50;           // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
@@ -63,6 +76,16 @@ void setup()
   
     // start the timer
     MyTimer5.start();
+
+
+
+
+  //lcd kode
+  lcd.begin(16,2);
+  pinMode(switchPin,INPUT);
+  lcd.print("Klar til");
+  lcd.setCursor(0,1);
+  lcd.print("maaling :)");
 }
 
 void loop()
@@ -73,6 +96,14 @@ void loop()
   Serial.print("Value: ");
   Serial.print(frequency);
   Serial.println(" Position");
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Value: ");
+  lcd.setCursor(0,1);
+  lcd.print(frequency);
+
+
 }
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
