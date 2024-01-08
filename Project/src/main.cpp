@@ -3,7 +3,7 @@
 #include <Timer5.h>
 using namespace std;
 
-const unsigned int avgSampleLength = 250;          // Number og samples to average over in the running average
+const unsigned int avgSampleLength = 50;           // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 double frequency;                                  // Global variable for the frequency
 unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
@@ -26,9 +26,13 @@ const unsigned long ulongThreasholdTest = 0; // Temp test value
 void timeStamp();
 double averageFrequency();
 void resetTimeArray();
+void AdcBooster();
+void waitMillis(unsigned long ms);
+void waitMicros(unsigned long us);
 
 void setup()
 {
+
   Serial.begin(9600); // Serial communication rate
   for (unsigned int i = 0; i < avgSampleLength; i++)
   {
@@ -44,36 +48,36 @@ void setup()
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
   // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
+  Serial.println("Setup done!");
 }
 
 void loop()
 {
+  delay(1000);
   frequency = averageFrequency(); // We calculate the running average of the frequency
   // Print out the running average of the frequency
   Serial.print("Frequency: ");
   Serial.print(frequency);
   Serial.println(" Hz");
-  now = millis();
-  float sample1 = analogRead(ADCPin);
-  while (millis() - now < sampleTime)
-    ;
-  float sample2 = analogRead(ADCPin);
-  now = millis();
 }
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
 {
   noInterrupts();
-  timeArray[currentIndex] = micros() + ulongThreasholdTest; // Save current time stamp in the array
-
-  if (currentIndex == avgSampleLength) // Reset when the array is full
+  Serial.println(micros());
+  timeArray[currentIndex] = micros();    // Save current time stamp in the array
+  if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
     currentIndex = 0;
+    for (unsigned int i = 0; i < avgSampleLength; i++)
+    {
+      currentIndex = 0;
+      Serial.println(timeArray[i]);
+    }
   }
   interrupts();
 }
-
 // Function that calculates the running average of the frequency
 double averageFrequency()
 {
@@ -82,7 +86,6 @@ double averageFrequency()
   // Start by making snapshot of timeArray
   unsigned long timeArraySnapshot[avgSampleLength];
   copy(timeArray, timeArray + avgSampleLength, timeArraySnapshot);
-
   // Find highest and lowest values in snapshot
   unsigned int i = 0;
   while (i < avgSampleLength && timeArraySnapshot[i] < timeArraySnapshot[i + 1])
@@ -91,9 +94,10 @@ double averageFrequency()
  This loop finds the index of the highest value*/
 
     if (timeArraySnapshot[i++] >= ulongThreashold)
-    // Check if micros() is in danger of overflowing
     {
-      for (int j = 0; j < avgSampleLength; j++)
+      Serial.println("Overflow");
+      // Check if micros() is in danger of overflowing
+      for (unsigned int j = 0; j < avgSampleLength; j++)
       {
         if (timeArraySnapshot[j] >= ulongThreashold * 0.9)
         {
@@ -150,3 +154,16 @@ void AdcBooster()
   while (ADC->STATUS.bit.SYNCBUSY == 1)
     ; // Wait for synchronization
 } // AdcBooster
+
+void waitMillis(unsigned long ms)
+{
+  unsigned long start = millis();
+  while (millis() - start < ms)
+    ;
+}
+void waitMicros(unsigned long us)
+{
+  unsigned long start = micros();
+  while (micros() - start < us)
+    ;
+}
