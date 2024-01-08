@@ -33,6 +33,7 @@ void resetTimeArray();
 void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
+void Timer5_IRQ();
 
 void setup()
 {
@@ -66,12 +67,12 @@ void setup()
 
 void loop()
 {
-  delay(1000);
-  frequency = averageFrequency(); // We calculate the running average of the frequency
+  delay(3);
+  frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-  Serial.print("Frequency: ");
+  Serial.print("Value: ");
   Serial.print(frequency);
-  Serial.println(" Hz");
+  Serial.println(" Position");
 }
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
@@ -177,10 +178,8 @@ void waitMicros(unsigned long us)
 }
 
 
-void Timer5_IRQ(void) {
+void Timer5_IRQ() {
     val = analogRead(ADCPin);
-    
-    Serial.println(val);
     
 }
 
@@ -189,7 +188,7 @@ void Timer5_IRQ(void) {
 void AnalogArray()
 {
 
-for (unsigned int i = 0; i < 2000; i++){
+for (unsigned int i = 0; i < avgSampleLength; i++){
  
  Analogarray[i]=val;
 }
