@@ -67,7 +67,7 @@ void setup()
 
 void loop()
 {
-  waitMillis(500); // We wait 0.005 second before calculating the frequency
+  waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
   Serial.print("Value: ");
@@ -180,6 +180,8 @@ void waitMicros(unsigned long us)
 
 void Timer5_IRQ() {
     val = analogRead(ADCPin);
+
+    val = map(val,0,1023,0,3.3);
     
 }
 
