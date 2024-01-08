@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <algorithm>
 #include <Timer5.h>
+#include <api/Print.h>
 using namespace std;
 
 const unsigned int avgSampleLength = 50;           // Number og samples to average over in the running average
@@ -19,6 +20,9 @@ double alpha;                       // Constant for the low pass filter
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
+volatile double val = 0;                //Creating val for analog read
+
+volatile unsigned long Analogarray[avgSampleLength];  //Creating array for analog input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
 
@@ -29,6 +33,7 @@ void resetTimeArray();
 void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
+void Timer5_IRQ();
 
 void setup()
 {
@@ -49,16 +54,25 @@ void setup()
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
   // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
+  
+   // define frequency of interrupt
+	MyTimer5.begin(200);  // 200=for toggle every 5msec
+
+    // define the interrupt callback function
+    MyTimer5.attachInterrupt(Timer5_IRQ);
+  
+    // start the timer
+    MyTimer5.start();
 }
 
 void loop()
 {
-  delay(1000);
-  frequency = averageFrequency(); // We calculate the running average of the frequency
+  waitMillis(500); // We wait 0.5 second before calculating the frequency
+  frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-  Serial.print("Frequency: ");
+  Serial.print("Value: ");
   Serial.print(frequency);
-  Serial.println(" Hz");
+  Serial.println(" Position");
 }
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
@@ -70,11 +84,6 @@ void timeStamp()
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
     currentIndex = 0;
-    for (unsigned int i = 0; i < avgSampleLength; i++)
-    {
-      currentIndex = 0;
-      Serial.println(timeArray[i]);
-    }
   }
   interrupts();
 }
@@ -167,3 +176,25 @@ void waitMicros(unsigned long us)
   while (micros() - start < us)
     ;
 }
+
+
+void Timer5_IRQ() {
+    val = (double(analogRead(ADCPin))/1023)*3.3;
+
+    
+}
+
+
+
+void AnalogArray()
+{
+
+for (unsigned int i = 0; i < avgSampleLength; i++){
+ 
+ Analogarray[i]=val;
+}
+
+
+
+}
+
