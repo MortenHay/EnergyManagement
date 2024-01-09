@@ -261,11 +261,11 @@ double analogfrequency(){
       AnalogFrequency2 = abs(val2-3)*(1/Samrate);
 
 
-  if AnalogFrequency1> AnalogFrequency2{
+  if (AnalogFrequency1> AnalogFrequency2){
 
       ActualAnalogFrequency = AnalogFrequency1;
     }
-    else if AnalogFrequency1 < AnalogFrequency2{
+    else if (AnalogFrequency1 < AnalogFrequency2){
 
       ActualAnalogFrequency = AnalogFrequency2;
     }
