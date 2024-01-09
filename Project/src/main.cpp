@@ -26,9 +26,9 @@ const unsigned long ulongThreashold = 4000000000;  // Threshold for when the tim
 unsigned long now;
 
 
-const double cutOffFrequency = 50;  // Cut off frequency for the low pass filter
+const double cutOffFrequency = 100;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
-volatile double alpha;                       // Constant for the low pass filter
+volatile float alpha;                       // Constant for the low pass filter
 
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
@@ -36,12 +36,12 @@ const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
 volatile double val1 = 0;                //Creating val for analog read
 volatile double val2 = 0;                //Creating val for analog read
-const int Samrate = 10000; //Sampling rate for MyTimer5
+const float Samrate = 10000; //Sampling rate for MyTimer5
 volatile double AnalogFrequency1 = 0; //Creating val for analog read
 volatile double AnalogFrequency2 = 0; //Creating val for analog read
-volatile double newSample = 0; //Creating val for low pass filter 
-volatile double OldSample = 0; //Creating val for low pass filter
-const double sampleTime = 1/double(Samrate);   // Sample time for the low pass filter in seconds
+volatile float newSample = 0; //Creating val for low pass filter 
+volatile float OldSample = 0; //Creating val for low pass filter
+const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
 
 
 
@@ -106,7 +106,7 @@ void setup()
 void loop()
 {
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
-  frequency = val; // We calculate the running average of the frequency
+  //frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
   //double freq = analogfrequency();
   //for(unsigned int i = 0; i < avgSampleLength; i++){
@@ -251,7 +251,7 @@ void waitMicros(unsigned long us)
 
 
 void Timer5_IRQ() {
-    val = (double(analogRead(ADCPin))/1023)*3.3;
+    //val = (double(analogRead(ADCPin))/1023)*3.3;
     /* Analogarray[currentIndex++]=val;
     if(currentIndex==avgSampleLength){
       currentIndex=0;
