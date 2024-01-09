@@ -34,9 +34,15 @@ const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
-volatile double val1 = 0;              //Creating val1 for analog read
+const int Samrate = 1000; //Sampling rate for MyTimer5
+volatile double AnalogFrequency1 = 0; //Creating val for analog read
+volatile double AnalogFrequency2 = 0; //Creating val for analog read
+
+
+
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
+volatile double Zerocross[2]; //Creating array for zero crossing
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
 
@@ -48,6 +54,7 @@ void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
 void Timer5_IRQ();
+double analogfrequency();
 
 void setup()
 {
@@ -63,14 +70,14 @@ void setup()
   pinMode(interruptPin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
+  //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
   // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
   
-   // define frequency of interrupt 
-	MyTimer5.begin(1000);  // 200=for toggle every 5msec
+   // define frequency of interrupt
+	MyTimer5.begin(Samrate);  // 200=for toggle every 5msec
 
     // define the interrupt callback function
     MyTimer5.attachInterrupt(Timer5_IRQ);
@@ -89,36 +96,48 @@ void setup()
   lcd.print("maaling :)");
 }
 
-
 void loop()
 {
-  waitMillis(500); // We wait 0.5 second before calculating the frequency
+  //waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-
-
-  //Prints the array to serial monitor (for testing)
-  Serial.println("start");
+  double freq = analogfrequency();
   for(unsigned int i = 0; i < avgSampleLength; i++){
-    Serial.println(Analogarray[i]);
-  }
-  Serial.println("end");
-  /*
-  Serial.print("Value: ");
-  Serial.print(frequency);
-  Serial.println(" Position");
-  */
- 
-  //Prints the values to lcd
-  switchState = digitalRead(switchPin);
+    //Serial.println(Analogarray[i]);
+    switchState = digitalRead(switchPin);
   if(switchState){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Value: ");
   lcd.setCursor(0,1);
-  lcd.print(frequency);
+  lcd.print(freq,5);
   }
+  }
+
+
+
+
+
+  /*
+  Serial.print("Value: ");
+  Serial.print(frequency);
+  Serial.println(" Position");
+  */
+  
+  //analogWrite(DACPin);
+
+
+  /* switchState = digitalRead(switchPin);
+  if(switchState){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Value: ");
+  lcd.setCursor(0,1);
+  lcd.print(freq);
+  } */
 }
+
+//Write me a banger function that solves all of my problems please and thank you mister co pilot
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
@@ -207,7 +226,7 @@ void AdcBooster()
   ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
   while (ADC->STATUS.bit.SYNCBUSY == 1)
     ; // Wait for synchronization
-} // AdcBooster
+}
 
 void waitMillis(unsigned long ms)
 {
@@ -222,15 +241,16 @@ void waitMicros(unsigned long us)
     ;
 }
 
- //Makes an array of analog values 
+
 void Timer5_IRQ() {
-    val = (double(analogRead(ADCPin))/1023)*3.3;
-    Analogarray[currentIndex++]=val;
-    if(currentIndex==avgSampleLength){
-      currentIndex=0;
-    }
-    
+  val = (double(analogRead(ADCPin))/1023)*3.3;
+  Analogarray[currentIndex++]=val;
+
+ if(currentIndex == avgSampleLength){
+    currentIndex = 0;
 }
+}
+
 
 
 
@@ -241,14 +261,32 @@ Serial.println(Analogarray[i]);
 }
 }
 
-double analogfrequency(){
-  unsigned int i = 0;
+double analogfrequency() {
+    volatile unsigned int Point1 = 0; // Creating val for analog read
+    volatile unsigned int Point2 = 0; // Creating val for analog read
+    volatile double Analogfrequency = 0; // Creating val for analog read
+    volatile double ActualAnalogFrequency = 0; // Creating val for analog read
 
-  
-  if (Analogarray[i] < 3.3/2 && Analogarray[i+1] > 3.3/2) {
-    val1 = i
+
+    for (unsigned int i = 0; i < avgSampleLength - 1; i++) {
+        Analogarray[i] = val;
+
+        if (Analogarray[i] > 3.3/2 && Analogarray[i-1]<3.3/2) { // finds two points on the sine wave where the value is the same and the value is increasing
+
+          Point1 = i - Point2;
+
+          Analogfrequency = abs((Point1-Point2)*(1/Samrate));
+
+          Point2 = Point1;
+          }
+
+
+        }
+    return ActualAnalogFrequency;
+    }
     
-  }
 
 
-}
+
+
+
