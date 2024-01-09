@@ -61,7 +61,7 @@ void loop()
   Serial.println(" Hz");
 }
 
-// Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
+// ISR that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
 {
   unsigned long currentTime = micros();
@@ -73,67 +73,29 @@ void timeStamp()
     currentIndex = 0;
   }
 }
-/* // Function that calculates the running average of the frequency
+
+// Function that calculates the running average of the frequency
 double averageFrequency()
 {
-  // Finds highest and lowest times in timeArray to calculate time to reach avgSampleLength samples
-
-  // Start by making snapshot of timeArray
+  // We create a snapshot of the time stamp array to avoid the array being changed during the calculation
   unsigned long timeArraySnapshot[avgSampleLength];
   copy(timeArray, timeArray + avgSampleLength, timeArraySnapshot);
-  // Find highest and lowest values in snapshot
-  unsigned int i = 0;
-  while (i < avgSampleLength && timeArraySnapshot[i] < timeArraySnapshot[i + 1])
-  {
-    /* The highest value will always preceed the lowest value in the array
- This loop finds the index of the highest value
 
-    if (timeArraySnapshot[i++] >= ulongThreashold)
-    {
-      Serial.println("Overflow");
-      // Check if micros() is in danger of overflowing
-      for (unsigned int j = 0; j < avgSampleLength; j++)
-      {
-        if (timeArraySnapshot[j] >= ulongThreashold * 0.9)
-        {
-          // Subtract all values in the array from ulongMax if they are close to overflowing
-          timeArraySnapshot[j] = ulongMax - timeArraySnapshot[j];
-        }
-      }
-      // Reset the loop if array was changed
-      i = 0;
-    }
-  }
-
-  unsigned long highest = timeArraySnapshot[i++]; // We save the highest value and increment i to the next value
-
-  if (i == avgSampleLength)
-  {
-    // If the highest value is the last value in the array, we reset i to 0
-    i = 0;
-  }
-  unsigned long lowest = timeArraySnapshot[i]; // We save the lowest value
-
-  // We calculate the running average of the frequency
-  return double(1000000) * (avgSampleLength - 1) / (highest - lowest);
-} */
-
-double averageFrequency()
-{
-  unsigned long timeArraySnapshot[avgSampleLength];
-  copy(timeArray, timeArray + avgSampleLength, timeArraySnapshot);
+  // The sum of the time differences in the array
   unsigned long sum = 0;
   for (unsigned int i = 0; i < avgSampleLength; i++)
   {
     sum += timeArraySnapshot[i];
   }
+
+  // The frequency is calculated as the inverse of the average time difference
   return double(1000000) * avgSampleLength / sum;
 }
 
+// Debug function to reset the time stamp array to 0
 void resetTimeArray()
 {
   detachInterrupt(digitalPinToInterrupt(interruptPin));
-  // We reset the time stamp array
   for (unsigned int i = 0; i < avgSampleLength; i++)
   {
     timeArray[i] = 0;
@@ -141,6 +103,7 @@ void resetTimeArray()
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
 }
 
+// Low pass filter function
 float lowPassFilter(float newSample, float OldSample)
 {
   float output = newSample * alpha + OldSample * (1 - alpha);
@@ -162,6 +125,7 @@ void AdcBooster()
     ; // Wait for synchronization
 } // AdcBooster
 
+// Wait functions as alternative to delay()
 void waitMillis(unsigned long ms)
 {
   unsigned long start = millis();
