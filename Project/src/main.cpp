@@ -64,7 +64,8 @@ double analogfrequency();
 
 void setup()
 {
-
+  analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
+  analogReadResolution(10);  // We set the resolution of the ADC to 10 bit  
   Serial.begin(9600); // Serial communication rate
   for (unsigned int i = 0; i < avgSampleLength; i++)
   {
