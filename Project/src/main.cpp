@@ -3,13 +3,13 @@
 #include <Timer5.h>
 using namespace std;
 
-const unsigned int avgSampleLength = 400;          // Number og samples to average over in the running average
+const unsigned int avgSampleLength = 3;            // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 double frequency;                                  // Global variable for the frequency
 unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
 const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned long
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
-unsigned long now;
+unsigned long lastTime = 0;
 
 const int sampleTime = 5;
 const double cutOffFrequency = 50;  // Cut off frequency for the low pass filter
@@ -53,7 +53,7 @@ void setup()
 
 void loop()
 {
-  waitMillis(1000);
+  waitMillis(100);
   frequency = averageFrequency(); // We calculate the running average of the frequency
   // Print out the running average of the frequency
   Serial.print("Frequency: ");
@@ -64,15 +64,16 @@ void loop()
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
 {
-  noInterrupts();
-  timeArray[currentIndex] = micros();    // Save current time stamp in the array
+  unsigned long currentTime = micros();
+  unsigned long deltaTime = currentTime - lastTime;
+  timeArray[currentIndex] = deltaTime; // Save current time stamp in the array
+  lastTime = currentTime;
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
     currentIndex = 0;
   }
-  interrupts();
 }
-// Function that calculates the running average of the frequency
+/* // Function that calculates the running average of the frequency
 double averageFrequency()
 {
   // Finds highest and lowest times in timeArray to calculate time to reach avgSampleLength samples
@@ -85,7 +86,7 @@ double averageFrequency()
   while (i < avgSampleLength && timeArraySnapshot[i] < timeArraySnapshot[i + 1])
   {
     /* The highest value will always preceed the lowest value in the array
- This loop finds the index of the highest value*/
+ This loop finds the index of the highest value
 
     if (timeArraySnapshot[i++] >= ulongThreashold)
     {
@@ -115,6 +116,18 @@ double averageFrequency()
 
   // We calculate the running average of the frequency
   return double(1000000) * (avgSampleLength - 1) / (highest - lowest);
+} */
+
+double averageFrequency()
+{
+  unsigned long timeArraySnapshot[avgSampleLength];
+  copy(timeArray, timeArray + avgSampleLength, timeArraySnapshot);
+  unsigned long sum = 0;
+  for (unsigned int i = 0; i < avgSampleLength; i++)
+  {
+    sum += timeArraySnapshot[i];
+  }
+  return double(1000000) * avgSampleLength / sum;
 }
 
 void resetTimeArray()
