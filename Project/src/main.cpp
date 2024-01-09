@@ -34,6 +34,14 @@ const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
+volatile double val1 = 0;                //Creating val for analog read
+volatile double val2 = 0;                //Creating val for analog read
+const int Samrate = 1000; //Sampling rate for MyTimer5
+volatile double AnalogFrequency1 = 0; //Creating val for analog read
+volatile double AnalogFrequency2 = 0; //Creating val for analog read
+volatile double ActualAnalogFrequency = 0; //Creating val for analog read
+
+
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -69,7 +77,7 @@ void setup()
   Serial.println("Setup done!");
   
    // define frequency of interrupt
-	MyTimer5.begin(200);  // 200=for toggle every 5msec
+	MyTimer5.begin(Samrate);  // 200=for toggle every 5msec
 
     // define the interrupt callback function
     MyTimer5.attachInterrupt(Timer5_IRQ);
@@ -232,5 +240,35 @@ for (unsigned int i = 0; i < avgSampleLength; i++){
 Analogarray[i]=val;
 Serial.println(Analogarray[i]);
 }
+}
+
+
+double analogfrequency(){
+
+  unsigned int i=0;
+
+  if (Analogarray[i]<Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){
+
+      val1 = i;
+  }
+  else if (Analogarray[i]>Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){
+
+      val2 = i;
+  }
+
+      AnalogFrequency1 = abs(val1-3)*(1/Samrate);
+
+      AnalogFrequency2 = abs(val2-3)*(1/Samrate);
+
+
+  if AnalogFrequency1> AnalogFrequency2{
+
+      ActualAnalogFrequency = AnalogFrequency1;
+    }
+    else if AnalogFrequency1 < AnalogFrequency2{
+
+      ActualAnalogFrequency = AnalogFrequency2;
+    }
+
 }
 
