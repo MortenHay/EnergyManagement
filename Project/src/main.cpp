@@ -25,10 +25,10 @@ const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned 
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
 unsigned long now;
 
-const int sampleTime = 5;
+
 const double cutOffFrequency = 50;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
-double alpha;                       // Constant for the low pass filter
+volatile double alpha;                       // Constant for the low pass filter
 
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
@@ -36,9 +36,12 @@ const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
 volatile double val1 = 0;                //Creating val for analog read
 volatile double val2 = 0;                //Creating val for analog read
-const int Samrate = 1000; //Sampling rate for MyTimer5
+const int Samrate = 10000; //Sampling rate for MyTimer5
 volatile double AnalogFrequency1 = 0; //Creating val for analog read
 volatile double AnalogFrequency2 = 0; //Creating val for analog read
+volatile double newSample = 0; //Creating val for low pass filter 
+volatile double OldSample = 0; //Creating val for low pass filter
+const double sampleTime = 1/double(Samrate);   // Sample time for the low pass filter in seconds
 
 
 
@@ -46,6 +49,8 @@ volatile double AnalogFrequency2 = 0; //Creating val for analog read
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
+
+
 
 // Function declarations
 void timeStamp();
@@ -74,7 +79,7 @@ void setup()
   //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
-  // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
+   AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
   
    // define frequency of interrupt
@@ -86,7 +91,7 @@ void setup()
     // start the timer
     MyTimer5.start();
 
-
+    
 
 
   //lcd kode
@@ -102,17 +107,22 @@ void loop()
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-  double freq = analogfrequency();
-  for(unsigned int i = 0; i < avgSampleLength; i++){
+  //double freq = analogfrequency();
+  //for(unsigned int i = 0; i < avgSampleLength; i++){
     //Serial.println(Analogarray[i]);
-    switchState = digitalRead(switchPin);
-  if(switchState){
+  //  switchState = digitalRead(switchPin);
+ /*  if(switchState){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Value: ");
   lcd.setCursor(0,1);
   lcd.print(freq,5);
-  }
+  } */
+  //analogWrite(DACPin, val*255/3.3);
+
+  
+
+
   }
   /*
   Serial.print("Value: ");
@@ -131,7 +141,7 @@ void loop()
   lcd.setCursor(0,1);
   lcd.print(freq);
   } */
-}
+
 
 //Write me a banger function that solves all of my problems please and thank you mister co pilot
 
@@ -222,7 +232,8 @@ void AdcBooster()
   ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
   while (ADC->STATUS.bit.SYNCBUSY == 1)
     ; // Wait for synchronization
-} // AdcBooster
+} 
+  
 
 void waitMillis(unsigned long ms)
 {
@@ -240,10 +251,20 @@ void waitMicros(unsigned long us)
 
 void Timer5_IRQ() {
     val = (double(analogRead(ADCPin))/1023)*3.3;
-    Analogarray[currentIndex++]=val;
+    /* Analogarray[currentIndex++]=val;
     if(currentIndex==avgSampleLength){
       currentIndex=0;
-    }
+    } */
+
+    newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha);
+
+    OldSample = newSample;
+
+    
+
+    analogWrite(DACPin,newSample);
+
+
     
 }
 
