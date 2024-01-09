@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <algorithm>
 #include <Timer5.h>
+#include <arduinoFFT.h>
 using namespace std;
 
 const unsigned int avgSampleLength = 3;            // Number og samples to average over in the running average
@@ -22,6 +23,15 @@ const int ADCPin = A1;      // ADC pin for input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
 
+// FFT
+arduinoFFT FFT;
+const u_int16_t samples = 1048576;        // Must be a power of 2
+const double samplingFrequency = 1048576; // Hz
+unsigned int sampling_period_us;
+unsigned long microseconds;
+double vReal[samples];
+double vImag[samples];
+
 // Function declarations
 void timeStamp();
 double averageFrequency();
@@ -39,26 +49,38 @@ void setup()
     // We initialize the time stamp array to 0
     timeArray[i] = 0;
   }
-
   // pins
   pinMode(interruptPin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
-  double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
-  alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
-  // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
+  // attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
+  sampling_period_us = round(1000000 * (1.0 / samplingFrequency));
+  double RC = 1 / (2 * pi * cutOffFrequency); // We calculate the time constant for the low pass filter
+  alpha = sampleTime / (sampleTime + RC);     // We calculate the constant for the low pass filter
+  AdcBooster();                               // We boost the ADC clock frequency to 2 MHz
+
+  while (!Serial)
+    ; // Wait for serial monitor to open
   Serial.println("Setup done!");
 }
 
 void loop()
 {
-  waitMillis(100);
-  frequency = averageFrequency(); // We calculate the running average of the frequency
-  // Print out the running average of the frequency
-  Serial.print("Frequency: ");
-  Serial.print(frequency, 5);
-  Serial.println(" Hz");
+  microseconds = micros();
+  for (unsigned int i = 0; i < samples; i++)
+  {
+    vReal[i] = analogRead(ADCPin);
+    vImag[i] = 0;
+    while (micros() - microseconds < sampling_period_us)
+      ;
+    microseconds += sampling_period_us;
+  }
+
+  FFT = arduinoFFT(vReal, vImag, samples, samplingFrequency);
+  // FFT.Windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+  FFT.Compute(FFT_FORWARD);
+  double peak = FFT.MajorPeak();
+  Serial.println(peak, 6);
 }
 
 // ISR that updates the time stamp array every time the interrupt pin goes HIGH
