@@ -39,7 +39,7 @@ volatile double val2 = 0;                //Creating val for analog read
 const int Samrate = 1000; //Sampling rate for MyTimer5
 volatile double AnalogFrequency1 = 0; //Creating val for analog read
 volatile double AnalogFrequency2 = 0; //Creating val for analog read
-volatile double ActualAnalogFrequency = 0; //Creating val for analog read
+
 
 
 
@@ -55,6 +55,7 @@ void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
 void Timer5_IRQ();
+double analogfrequency();
 
 void setup()
 {
@@ -70,7 +71,7 @@ void setup()
   pinMode(interruptPin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
+  //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
   // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
@@ -98,28 +99,41 @@ void setup()
 
 void loop()
 {
-  waitMillis(500); // We wait 0.5 second before calculating the frequency
+  //waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-  
+  double freq = analogfrequency();
   for(unsigned int i = 0; i < avgSampleLength; i++){
-    Serial.println(Analogarray[i]);
+    //Serial.println(Analogarray[i]);
+    switchState = digitalRead(switchPin);
+  if(switchState){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Value: ");
+  lcd.setCursor(0,1);
+  lcd.print(freq,5);
+  }
   }
   /*
   Serial.print("Value: ");
   Serial.print(frequency);
   Serial.println(" Position");
   */
- 
-  switchState = digitalRead(switchPin);
+  
+  //analogWrite(DACPin);
+
+
+  /* switchState = digitalRead(switchPin);
   if(switchState){
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Value: ");
   lcd.setCursor(0,1);
-  lcd.print(frequency);
-  }
+  lcd.print(freq);
+  } */
 }
+
+//Write me a banger function that solves all of my problems please and thank you mister co pilot
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
@@ -243,9 +257,16 @@ Serial.println(Analogarray[i]);
 }
 
 
-double analogfrequency(){
+/* double analogfrequency(){
 
-  unsigned int i=0;
+  //unsigned int i=0;
+  volatile double ActualAnalogFrequency = 0; //Creating val for analog read
+
+  for (unsigned int i = 0; i < avgSampleLength; i++){
+Analogarray[i]=val;
+//Serial.println(Analogarray[i]);
+
+  
 
   if (Analogarray[i]<Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){      //finds to points on the sine wave where the value is the same and the value is increasing
 
@@ -269,6 +290,36 @@ double analogfrequency(){
 
       ActualAnalogFrequency = AnalogFrequency2;
     }
+  
+  }
+  return ActualAnalogFrequency; */
+  
+double analogfrequency() {
+    volatile double ActualAnalogFrequency = 0; // Creating val for analog read
 
+    for (unsigned int i = 0; i < avgSampleLength - 1; i++) {
+        Analogarray[i] = val;
+        // Serial.println(Analogarray[i]);
+
+        if (Analogarray[i] < 3.3/2 && Analogarray[i+1]>3.3/2) { // finds two points on the sine wave where the value is the same and the value is increasing
+            val1 = i;
+        } else if (Analogarray[i] > 3.3/2 && Analogarray[i+1]<3.3/2) { // finds two points on the sine wave where the value is the same and the value is decreasing
+            val2 = i;
+        }
+
+        AnalogFrequency1 =1/ (abs(val1 - val2) * (2.0 / Samrate)); // calculates the frequency of the sine wave
+       // AnalogFrequency2 = 1/ (abs(val2 - 3) * (1.0 / Samrate)); // calculates the frequency of the sine wave
+
+        if (AnalogFrequency1 > AnalogFrequency2) { // finds the highest frequency to ensure that the frequency is calculated for a whole period and sets it to the actual frequency
+            ActualAnalogFrequency = AnalogFrequency1;
+        } else if (AnalogFrequency1 < AnalogFrequency2) {
+            ActualAnalogFrequency = AnalogFrequency2;
+        }
+    }
+    return ActualAnalogFrequency;
+    //return val2;
 }
+
+
+
 
