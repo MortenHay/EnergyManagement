@@ -69,7 +69,7 @@ void setup()
   Serial.println("Setup done!");
   
    // define frequency of interrupt
-	MyTimer5.begin(200);  // 200=for toggle every 5msec
+	MyTimer5.begin(1000);  // 200=for toggle every 5msec
 
     // define the interrupt callback function
     MyTimer5.attachInterrupt(Timer5_IRQ);
@@ -88,21 +88,27 @@ void setup()
   lcd.print("maaling :)");
 }
 
+
 void loop()
 {
   waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-  
+
+
+  //Prints the array to serial monitor (for testing)
+  Serial.println("start");
   for(unsigned int i = 0; i < avgSampleLength; i++){
     Serial.println(Analogarray[i]);
   }
+  Serial.println("end");
   /*
   Serial.print("Value: ");
   Serial.print(frequency);
   Serial.println(" Position");
   */
  
+  //Prints the values to lcd
   switchState = digitalRead(switchPin);
   if(switchState){
   lcd.clear();
@@ -215,7 +221,7 @@ void waitMicros(unsigned long us)
     ;
 }
 
-
+ //Makes an array of analog values 
 void Timer5_IRQ() {
     val = (double(analogRead(ADCPin))/1023)*3.3;
     Analogarray[currentIndex++]=val;
