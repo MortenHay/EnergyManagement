@@ -247,21 +247,21 @@ double analogfrequency(){
 
   unsigned int i=0;
 
-  if (Analogarray[i]<Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){
+  if (Analogarray[i]<Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){      //finds to points on the sine wave where the value is the same and the value is increasing
 
       val1 = i;
   }
-  else if (Analogarray[i]>Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){
+  else if (Analogarray[i]>Analogarray[i+1] && Analogarray[i]==Analogarray[3] && i!=3){    //finds to points on the sine wave where the value is the same and the value is decreasing
 
       val2 = i;
   }
 
-      AnalogFrequency1 = abs(val1-3)*(1/Samrate);
+      AnalogFrequency1 = abs(val1-3)*(1/Samrate);  //calculates the frequency of the sine wave
 
-      AnalogFrequency2 = abs(val2-3)*(1/Samrate);
+      AnalogFrequency2 = abs(val2-3)*(1/Samrate);   //calculates the frequency of the sine wave
 
 
-  if (AnalogFrequency1> AnalogFrequency2){
+  if (AnalogFrequency1> AnalogFrequency2){  //finds the highest frequency to ensure that the frequency is calculated for a whoel period and sets it to the actual frequency
 
       ActualAnalogFrequency = AnalogFrequency1;
     }
