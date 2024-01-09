@@ -2,7 +2,20 @@
 #include <algorithm>
 #include <Timer5.h>
 #include <api/Print.h>
+#include <LiquidCrystal.h>
 using namespace std;
+
+// Tester om lcd kan bruges
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+const int switchPin = 6;
+int switchState = 0;
+int reply;
+
+//Yderligere kode til lcd
+
+
+
+
 
 const unsigned int avgSampleLength = 50;           // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
@@ -22,7 +35,7 @@ const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
 
-volatile unsigned long Analogarray[avgSampleLength];  //Creating array for analog input
+volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
 
@@ -63,6 +76,16 @@ void setup()
   
     // start the timer
     MyTimer5.start();
+
+
+
+
+  //lcd kode
+  lcd.begin(16,2);
+  pinMode(switchPin,INPUT);
+  lcd.print("Klar til");
+  lcd.setCursor(0,1);
+  lcd.print("maaling :)");
 }
 
 void loop()
@@ -70,9 +93,24 @@ void loop()
   waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
+  
+  for(unsigned int i = 0; i < avgSampleLength; i++){
+    Serial.println(Analogarray[i]);
+  }
+  /*
   Serial.print("Value: ");
   Serial.print(frequency);
   Serial.println(" Position");
+  */
+ 
+  switchState = digitalRead(switchPin);
+  if(switchState){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Value: ");
+  lcd.setCursor(0,1);
+  lcd.print(frequency);
+  }
 }
 
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
@@ -180,22 +218,19 @@ void waitMicros(unsigned long us)
 
 void Timer5_IRQ() {
     val = (double(analogRead(ADCPin))/1023)*3.3;
-
+    Analogarray[currentIndex++]=val;
+    if(currentIndex==avgSampleLength){
+      currentIndex=0;
+    }
     
 }
 
 
 
-void AnalogArray()
-{
-
+void AnalogArray(){
 for (unsigned int i = 0; i < avgSampleLength; i++){
- 
- Analogarray[i]=val;
+Analogarray[i]=val;
+Serial.println(Analogarray[i]);
 }
-
-
-
 }
-
 
