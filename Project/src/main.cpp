@@ -34,6 +34,7 @@ const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
+volatile double val1 = 0;              //Creating val1 for analog read
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -68,7 +69,7 @@ void setup()
   // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
   
-   // define frequency of interrupt
+   // define frequency of interrupt 
 	MyTimer5.begin(1000);  // 200=for toggle every 5msec
 
     // define the interrupt callback function
@@ -240,3 +241,14 @@ Serial.println(Analogarray[i]);
 }
 }
 
+double analogfrequency(){
+  unsigned int i = 0;
+
+  
+  if (Analogarray[i] < 3.3/2 && Analogarray[i+1] > 3.3/2) {
+    val1 = i
+    
+  }
+
+
+}
