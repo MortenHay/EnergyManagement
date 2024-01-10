@@ -38,6 +38,7 @@ volatile double val = 0;                //Creating val for analog read
 const int Samrate = 300; //Sampling rate for MyTimer5
 volatile double Amplitude = 1.65; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
+double freq = 0; //Creating val for frequency
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -102,11 +103,9 @@ void loop()
 {
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
-  // Print out the running average of the frequency
-  double freq = 0;
 
   // print and calculation of frequency
-    freq = Samrate*(crosstimeN-1)/(analogfrequency());
+    freq = (Samrate*(crosstimeN-1)/(analogfrequency()));
     Serial.println(freq);
 
 
@@ -261,7 +260,7 @@ Serial.println(Analogarray[i]);
 
 
 double analogfrequency() {
-    volatile double oldval = 0;
+    volatile double oldval;
     volatile double zerocrosstime = 0;
     volatile int count = 0;
 
