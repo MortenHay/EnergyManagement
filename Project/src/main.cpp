@@ -1,9 +1,20 @@
 #include <Arduino.h>
 #include <algorithm>
 #include <Timer5.h>
+#include <api/Print.h>
+#include <LiquidCrystal.h>
 using namespace std;
 
+
+
+// Tester om lcd kan bruges
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+const int switchPin = 6;
+int switchState = 0;
+int reply;
+
 const unsigned int avgSampleLength = 3;            // Number og samples to average over in the running average
+
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 double frequency;                                  // Global variable for the frequency
 unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
@@ -11,14 +22,27 @@ const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned 
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
 unsigned long lastTime = 0;
 
-const int sampleTime = 5;
-const double cutOffFrequency = 50;  // Cut off frequency for the low pass filter
+
+const double cutOffFrequency = 100;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
 double alpha;                       // Constant for the low pass filter
 
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
+volatile double val = 0;                //Creating val for analog read
+const float Samrate = 10000; //Sampling rate for MyTimer5
+volatile double Amplitude = 511; //Creating val for analog read
+volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
+double freq = 0; //Creating val for frequency
+volatile float newSample = 0; //Creating val for low pass filter 
+volatile float OldSample = 0; //Creating val for low pass filter
+const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
+volatile double zerocrosstime = 0;
+volatile int counter = 0;
+
+
+volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
 
@@ -29,9 +53,16 @@ void resetTimeArray();
 void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
+void Timer5_IRQ();
+double analogfrequency();
 
+
+//Initializing 
 void setup()
 {
+  analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
+  analogReadResolution(10);  // We set the resolution of the ADC to 10 bit  
+
 
   Serial.begin(9600); // Serial communication rate
   for (unsigned int i = 0; i < avgSampleLength; i++)
@@ -39,26 +70,66 @@ void setup()
     // We initialize the time stamp array to 0
     timeArray[i] = 0;
   }
-
+  analogWriteResolution(10); // We set the resolution of the DAC to 10 bits
+  analogReadResolution(10);  // We set the resolution of the ADC to 10 bits
   // pins
   pinMode(interruptPin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
+  //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
-  // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
+  AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
+  
+   // define frequency of interrupt
+	MyTimer5.begin(Samrate);  // 200=for toggle every 5msec
+
+    // define the interrupt callback function
+    MyTimer5.attachInterrupt(Timer5_IRQ);
+  
+    // start the timer
+    MyTimer5.start();
+
+
+
+
+  //lcd kode
+  lcd.begin(16,2);
+  pinMode(switchPin,INPUT);
+  lcd.print("Klar til");
+  lcd.setCursor(0,1);
+  lcd.print("maaling :)");
 }
 
+
+//Main loop
 void loop()
 {
-  waitMillis(100);
-  frequency = averageFrequency(); // We calculate the running average of the frequency
-  // Print out the running average of the frequency
-  Serial.print("Frequency: ");
-  Serial.print(frequency, 5);
-  Serial.println(" Hz");
+  //waitMillis(500); // We wait 0.5 second before calculating the frequency
+  // print and calculation of frequency
+
+ // If function for analog calculating frequency
+ // 0.9739943508327652 factor for 1000Hz
+ // 1.087040767 factor for 10000Hz
+  if (zerocrosstime >= (crosstimeN-1)) {
+
+    freq = (Samrate*(crosstimeN-1)/(counter));
+
+    counter = 0;
+    zerocrosstime = 0;
+
+    //Serial.println(freq);
+    switchState = digitalRead(switchPin);
+    if(switchState){
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Value: ");
+    lcd.setCursor(0,1);
+    lcd.print(freq,5);
+    }
+
+  }
 }
 
 // ISR that updates the time stamp array every time the interrupt pin goes HIGH
@@ -123,7 +194,7 @@ void AdcBooster()
   ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
   while (ADC->STATUS.bit.SYNCBUSY == 1)
     ; // Wait for synchronization
-} // AdcBooster
+}
 
 // Wait functions as alternative to delay()
 void waitMillis(unsigned long ms)
@@ -138,3 +209,37 @@ void waitMicros(unsigned long us)
   while (micros() - start < us)
     ;
 }
+
+
+void Timer5_IRQ() {
+  
+  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha);
+
+    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) {
+
+      zerocrosstime++;
+
+    } else {
+
+      counter++;
+
+    }
+
+   OldSample = newSample;
+
+   //analogWrite(DACPin,newSample);
+
+  }
+
+
+
+
+void AnalogArray(){
+for (unsigned int i = 0; i < avgSampleLength; i++){
+Analogarray[i]=val;
+Serial.println(Analogarray[i]);
+}
+}
+
+
+
