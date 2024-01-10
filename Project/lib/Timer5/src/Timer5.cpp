@@ -130,7 +130,7 @@ void Timer5Class::attachInterrupt(voidFuncPtr callback)
   Timer_callBack = callback;
 }
 
-// Timer5Class MyTimer5;
+Timer5Class MyTimer5;
 
 #ifdef __cplusplus
 extern "C"

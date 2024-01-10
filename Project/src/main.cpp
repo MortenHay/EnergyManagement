@@ -10,56 +10,54 @@ using namespace std;
 
 // Tester om lcd kan bruges
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-const int switchPin = 6;
 int switchState = 0;
-int reply;
-
-// Timer5 objects
-Timer5Class MyTimer5;
 
 const unsigned int avgSampleLength = 3; // Number og samples to average over in the running average
 
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 double frequency;                                  // Global variable for the frequency
-unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
-const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned long
-const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
-unsigned long lastTime = 0;
+volatile unsigned int currentIndex = 0;            // We create the empty time stamp array used for the interrupt
+volatile unsigned long lastTime = 0;
 
 const double cutOffFrequency = 100; // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
 double alpha;                       // Constant for the low pass filter
 
-const int interruptPin = 0;           // Interrupt pin for the frequency counter
-const int DACPin = A0;                // DAC pin for output
-const int ADCPin = A1;                // ADC pin for input
+const int interruptPin = 0; // Interrupt pin for the frequency counter
+const int DACPin = A0;      // DAC pin for output
+const int ADCPin = A1;      // ADC pin for input
+const int modePin = 6;      // Pin for switching between operating modes
+const int switchPin = 6;
+
 volatile double val = 0;              // Creating val for analog read
-const float Samrate = 10000;          // Sampling rate for MyTimer5
+const float digitalSampleRate = 1000; // Sample rate for the digital wave counter
+const float analogSampleRate = 10000; // Sample rate for the analog zero cross
+float Samrate;                        // Sampling rate for MyTimer5
 volatile double Amplitude = 511;      // Creating val for analog read
 volatile double crosstimeN = 50;      // Creating a val for the number of zero crossings bore calculation
 double freq = 0;                      // Creating val for frequency
 volatile float newSample = 0;         // Creating val for low pass filter
 volatile float OldSample = 0;         // Creating val for low pass filter
-const float sampleTime = 1 / Samrate; // Sample time for the low pass filter in seconds
+float sampleTime;                     // Sample time for the low pass filter in seconds
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
-
-volatile double Analogarray[avgSampleLength]; // Creating array for analog input
 
 volatile int voltageSquareSum = 0; // Creating val for RMS calculation
 
 volatile byte operatingMode;              // Operating mode for the program
 volatile unsigned long switchingTime = 0; // Time of last switch between operating modes
+volatile unsigned long lastVoltage = 0;   // Time of last interrupt
 
 // Function declarations
 void timeStamp();
-double averageFrequency();
+double digitalFrequency();
+double analogFrequency();
 void resetTimeArray();
 void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
-void Timer5_IRQ();
-double analogfrequency();
+void Timer5_analogZeroCross();
+void rmsSum(float voltage, unsigned long time);
 
 // Initializing
 void setup()
@@ -72,29 +70,18 @@ void setup()
 
   // pins
   pinMode(interruptPin, INPUT);
+  pinMode(modePin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-
-  setupDigitalWaveCounter(); // We set the initial operating mode to digital wave counter
-
-  double RC = 1 / (2 * pi * cutOffFrequency); // We calculate the time constant for the low pass filter
-  alpha = sampleTime / (sampleTime + RC);     // We calculate the constant for the low pass filter
-
-  // define frequency of interrupt
-  MyTimer5.begin(Samrate); // 200=for toggle every 5msec
-
-  // define the interrupt callback function
-  MyTimer5.attachInterrupt(Timer5_IRQ);
-
-  // start the timer
-  MyTimer5.start();
+  pinMode(switchPin, INPUT);
 
   // lcd code
   lcd.begin(16, 2);
-  pinMode(switchPin, INPUT);
-  lcd.print("Klar til");
-  lcd.setCursor(0, 1);
-  lcd.print("maaling :)");
+  lcdReset();
+
+  setupDigitalWaveCounter(); // We set the initial operating mode to digital wave counter
+  while (!Serial)
+    ; // Wait for serial monitor to open
 
   Serial.println("Setup done!");
 }
@@ -102,6 +89,34 @@ void setup()
 // Main loop
 void loop()
 {
+  switch (operatingMode)
+  {
+  case DIGITAL_WAVE_COUNTER:
+    // We calculate the frequency using the running average
+    frequency = digitalFrequency();
+    // We print the frequency to the serial monitor
+    Serial.println(frequency);
+    lcdFrequency(frequency);
+    // We wait 0.5 second before calculating the frequency
+    waitMillis(500);
+    break;
+
+  case ANALOG_ZERO_CROSS:
+    // We calculate the frequency using the running average
+    if (zerocrosstime >= (crosstimeN - 1))
+    {
+      frequency = analogFrequency();
+      // We print the frequency to the serial monitor
+      Serial.println(frequency);
+      lcdFrequency(frequency);
+    }
+    break;
+
+  default:
+    // Default case to reset for security
+    setupDigitalWaveCounter();
+    break;
+  }
 
   // waitMillis(500); // We wait 0.5 second before calculating the frequency
   //  print and calculation of frequency
@@ -130,26 +145,9 @@ void loop()
     } */
 }
 
-// ISR that updates the time stamp array every time the interrupt pin goes HIGH
-void timeStamp()
-{
-  unsigned long currentTime = micros();
-  unsigned long deltaTime = currentTime - lastTime;
-  timeArray[currentIndex] = deltaTime; // Save current time stamp in the array
-  lastTime = currentTime;
-  if (++currentIndex == avgSampleLength) // Reset when the array is full
-  {
-    currentIndex = 0;
-  }
-}
-
-void readVoltage()
-{
-  voltageSquareSum += analogRead(ADCPin) * analogRead(ADCPin) * sampleTime;
-}
-
+// ---------------Frequency calculation functions-----------------//
 // Function that calculates the running average of the frequency
-double averageFrequency()
+double digitalFrequency()
 {
   // We create a snapshot of the time stamp array to avoid the array being changed during the calculation
   unsigned long timeArraySnapshot[avgSampleLength];
@@ -166,40 +164,27 @@ double averageFrequency()
   return double(1000000) * avgSampleLength / sum;
 }
 
-// Debug function to reset the time stamp array to 0
-void resetTimeArray()
+double analogFrequency()
 {
-  detachInterrupt(digitalPinToInterrupt(interruptPin));
-  for (unsigned int i = 0; i < avgSampleLength; i++)
-  {
-    timeArray[i] = 0;
-  }
-  attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
+  counter = 0;
+  zerocrosstime = 0;
+  return (Samrate * (crosstimeN - 1) / (counter));
 }
 
-// Low pass filter function
-float lowPassFilter(float newSample, float OldSample)
+// ---------------Low pass filter functions-----------------//
+float lowPassFilter(float newSample, float previousSample)
 {
-  float output = newSample * alpha + OldSample * (1 - alpha);
+  float output = newSample * alpha + previousSample * (1 - alpha);
   return output;
 }
 
-void AdcBooster()
+void lowPassFilterSetup(double period)
 {
-  ADC->CTRLA.bit.ENABLE = 0; // Disable ADC
-  while (ADC->STATUS.bit.SYNCBUSY == 1)
-    ;                                            // Wait for synchronization
-  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER_DIV16 |   // Divide Clock by 16.
-                   ADC_CTRLB_RESSEL_10BIT;       // Result on 10 bits
-  ADC->AVGCTRL.reg = ADC_AVGCTRL_SAMPLENUM_1 |   // 1 sample
-                     ADC_AVGCTRL_ADJRES(0x00ul); // Adjusting result by 0
-  ADC->SAMPCTRL.reg = 0x00;                      // Sampling Time Length = 0
-  ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
-  while (ADC->STATUS.bit.SYNCBUSY == 1)
-    ; // Wait for synchronization
+  double RC = 1 / (2 * pi * cutOffFrequency); // We calculate the time constant for the low pass filter
+  alpha = period / (sampleTime + RC);         // We calculate the constant for the low pass filter
 }
 
-// Wait functions as alternative to delay()
+// ---------------Wait functions as alternative to delay()----------------//
 void waitMillis(unsigned long ms)
 {
   unsigned long start = millis();
@@ -213,36 +198,42 @@ void waitMicros(unsigned long us)
     ;
 }
 
-void Timer5_IRQ()
+// ---------------RMS functions----------------//
+void rmsSum(float voltage, unsigned long time)
 {
-
-  newSample = double(analogRead(ADCPin)) * alpha + OldSample * (1 - alpha);
-
-  if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
-  {
-    counter++;
-    zerocrosstime++;
-  }
-  else
-  {
-
-    counter++;
-  }
-
-  OldSample = newSample;
-
-  // analogWrite(DACPin,newSample);
+  voltageSquareSum += voltage * voltage * time;
 }
 
-void AnalogArray()
+float rmsCalculation(unsigned long period)
 {
-  for (unsigned int i = 0; i < avgSampleLength; i++)
-  {
-    Analogarray[i] = val;
-    Serial.println(Analogarray[i]);
-  }
+  float rms = sqrt(voltageSquareSum / period);
+  voltageSquareSum = 0;
+  return rms;
 }
 
+//--------------------------LCD functions--------------------------//
+void lcdFrequency(double freq)
+{
+  lcd.setCursor(6, 0);
+  lcd.print(freq, 5);
+}
+
+void lcdVoltage(float voltage)
+{
+  lcd.setCursor(6, 1);
+  lcd.print(voltage, 5);
+}
+
+void lcdReset()
+{
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Freq: ");
+  lcd.setCursor(0, 1);
+  lcd.print("Volt: ");
+}
+
+//--------------------------ISR functions--------------------------//
 // ISR to rotate operating mode
 void switchOperatingMode()
 {
@@ -269,6 +260,41 @@ void switchOperatingMode()
   switchingTime = millis();
 }
 
+// ISR that updates the time stamp array every time the interrupt pin goes HIGH
+void timeStamp()
+{
+  unsigned long currentTime = micros();
+  unsigned long deltaTime = currentTime - lastTime;
+  timeArray[currentIndex] = deltaTime; // Save current time stamp in the array
+  lastTime = currentTime;
+  if (++currentIndex == avgSampleLength) // Reset when the array is full
+  {
+    currentIndex = 0;
+  }
+}
+
+void Timer5_analogZeroCross()
+{
+  newSample = lowPassFilter(analogRead(ADCPin), OldSample);
+  rmsSum(newSample, sampleTime);
+  counter++;
+
+  if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
+  {
+    zerocrosstime++;
+  }
+
+  OldSample = newSample;
+
+  // analogWrite(DACPin,newSample);
+}
+
+void Timer5_digitalWaveCounter()
+{
+  lastVoltage = micros();
+  rmsSum(analogRead(ADCPin), sampleTime);
+}
+
 //--------------------------Mode setup functions--------------------------//
 void setupDigitalWaveCounter()
 {
@@ -278,7 +304,7 @@ void setupDigitalWaveCounter()
   resetTimeArray();
   // We set our interrupt to trigger the interupt function when value reaches HIGH
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
-  MyTimer5.
+  setTimer5(digitalSampleRate, Timer5_digitalWaveCounter);
 }
 
 void setupAnalogZeroCross()
@@ -286,5 +312,51 @@ void setupAnalogZeroCross()
   // Setup for analog zero cross
   operatingMode = ANALOG_ZERO_CROSS;
   // We set our interrupt to trigger the interupt function when value reaches HIGH
-  attachInterrupt(digitalPinToInterrupt(interruptPin), switchOperatingMode, RISING);
+  detachInterrupt(digitalPinToInterrupt(interruptPin));
+  counter = 0;
+  setTimer5(analogSampleRate, Timer5_analogZeroCross);
+}
+
+void setTimer5(float sampleRate, voidFuncPtr callback)
+{
+  MyTimer5.end();
+
+  Samrate = sampleRate;
+  sampleTime = 1 / sampleRate;
+
+  lowPassFilterSetup(sampleTime);
+
+  // define frequency of interrupt
+  MyTimer5.begin(sampleRate); // 200=for toggle every 5msec
+
+  // define the interrupt callback function
+  MyTimer5.attachInterrupt(Timer5_analogZeroCross);
+
+  // start the timer
+  MyTimer5.start();
+}
+
+// Function to reset the time stamp array to 0
+void resetTimeArray()
+{
+  for (unsigned int i = 0; i < avgSampleLength; i++)
+  {
+    timeArray[i] = 0;
+  }
+}
+
+//--------------------------ADC clock booster--------------------------//
+void AdcBooster()
+{
+  ADC->CTRLA.bit.ENABLE = 0; // Disable ADC
+  while (ADC->STATUS.bit.SYNCBUSY == 1)
+    ;                                            // Wait for synchronization
+  ADC->CTRLB.reg = ADC_CTRLB_PRESCALER_DIV16 |   // Divide Clock by 16.
+                   ADC_CTRLB_RESSEL_10BIT;       // Result on 10 bits
+  ADC->AVGCTRL.reg = ADC_AVGCTRL_SAMPLENUM_1 |   // 1 sample
+                     ADC_AVGCTRL_ADJRES(0x00ul); // Adjusting result by 0
+  ADC->SAMPCTRL.reg = 0x00;                      // Sampling Time Length = 0
+  ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
+  while (ADC->STATUS.bit.SYNCBUSY == 1)
+    ; // Wait for synchronization
 }
