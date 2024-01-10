@@ -37,9 +37,8 @@ volatile double val = 0;                //Creating val for analog read
 const int Samrate = 300; //Sampling rate for MyTimer5
 volatile double AnalogFrequency1 = 0; //Creating val for analog read
 volatile double AnalogFrequency2 = 0; //Creating val for analog read
-
 volatile double Amplitude = 1.65; //Creating val for analog read
-
+volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
@@ -102,21 +101,22 @@ void loop()
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
   frequency = val; // We calculate the running average of the frequency
   // Print out the running average of the frequency
-  double freq = analogfrequency();
+  double freq = 0;
+
+  // print and calculation of frequency
+    freq = Samrate*(crosstimeN-1)/(analogfrequency());
+
   for(unsigned int i = 0; i < avgSampleLength; i++){
     //Serial.println(Analogarray[i]);
     switchState = digitalRead(switchPin);
-  if(switchState){
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Value: ");
-  lcd.setCursor(0,1);
-  lcd.print(freq,5);
+    if(switchState){
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Value: ");
+    lcd.setCursor(0,1);
+    lcd.print(freq,5);
   }
   }
-
-
-
   
   Serial.print("Value: ");
   Serial.print(freq);
@@ -262,32 +262,23 @@ Serial.println(Analogarray[i]);
 
 
 double analogfrequency() {
-    volatile unsigned int Point1 = 0; // Creating val for analog read
-    volatile unsigned int Point2 = 0; // Creating val for analog read
-    volatile double Analogfrequency = 0; // Creating val for analog read
-    volatile double newval = 0;
+    volatile double oldval = 0;
+    volatile double zerocrosstime = 0;
+    volatile int count = 0;
+
+    while (zerocrosstime < (crosstimeN-1)) {
+
+    if(val >= Amplitude/2 && oldval < Amplitude/2) {
+      zerocrosstime++;
+
+    } else {
+        count++;
+    }
     
-    for (unsigned int i = 0; i < 10; i++) {
-        Analogarray[i] = val;
-
-        if (Analogarray[i] > Amplitude/2 && Analogarray[i-1]< Amplitude/2) { // finds two points on the sine wave where the value is the same and the value is increasing
-
-          Point1 = i;
-
-          Analogfrequency = abs((Point1-Point2)*(1/Samrate));
-
-          Point2 = Point1;
-          }
-
-          else {
-          Analogfrequency = 10;
-          }
-  }
-  return Analogfrequency;
+    oldval = val;
+    }
+  return count; 
 }
-
-
-
 
 
 
