@@ -7,46 +7,52 @@ using namespace std;
 
 #define DIGITAL_WAVE_COUNTER 0
 #define ANALOG_ZERO_CROSS 1
+#define ANALOG_SAMPLE_PASSTHROUGH 2
 
-// Tester om lcd kan bruges
+// lcd object
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-int switchState = 0;
 
-const unsigned int avgSampleLength = 3; // Number og samples to average over in the running average
+// Global variable for the frequency
+double frequency;
 
-volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
-double frequency;                                  // Global variable for the frequency
-volatile unsigned int currentIndex = 0;            // We create the empty time stamp array used for the interrupt
-volatile unsigned long lastTime = 0;
-
-const double cutOffFrequency = 100; // Cut off frequency for the low pass filter
-const float pi = 3.141592653589793; // constant pi
-double alpha;                       // Constant for the low pass filter
-
+// Pin definitions
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 const int modePin = 6;      // Pin for switching between operating modes
 const int switchPin = 6;
 
-volatile double val = 0;              // Creating val for analog read
+// Digital wave counter variables
+const unsigned int avgSampleLength = 3;            // Number og samples to average over in the running average
+volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
+volatile unsigned int currentIndex = 0;            // We create the empty time stamp array used for the interrupt
+volatile unsigned long lastTime = 0;
 const float digitalSampleRate = 1000; // Sample rate for the digital wave counter
-const float analogSampleRate = 10000; // Sample rate for the analog zero cross
-float Samrate;                        // Sampling rate for MyTimer5
-volatile double Amplitude = 511;      // Creating val for analog read
-volatile double crosstimeN = 50;      // Creating a val for the number of zero crossings bore calculation
-double freq = 0;                      // Creating val for frequency
-volatile float newSample = 0;         // Creating val for low pass filter
-volatile float OldSample = 0;         // Creating val for low pass filter
-float sampleTime;                     // Sample time for the low pass filter in seconds
+
+// Analog zero cross variables
+volatile double Amplitude = 511; // Creating val for analog read
+volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
+const float analogSampleRate = 10000; // Sample rate for the analog zero cross
 
-volatile int voltageSquareSum = 0; // Creating val for RMS calculation
+// Low pass filter variables
+const double cutOffFrequency = 100; // Cut off frequency for the low pass filter
+const float pi = 3.141592653589793; // constant pi
+double alpha;                       // Constant for the low pass filter
+float sampleTime;                   // Sample time for the low pass filter in seconds
+volatile float newSample = 0;       // Creating val for low pass filter
+volatile float OldSample = 0;       // Creating val for low pass filter
 
+// Operating mode variables
 volatile byte operatingMode;              // Operating mode for the program
 volatile unsigned long switchingTime = 0; // Time of last switch between operating modes
-volatile unsigned long lastVoltage = 0;   // Time of last interrupt
+volatile float samrate;                   // Sampling rate for MyTimer5
+
+// RMS variables
+volatile int voltageSquareSum = 0;      // Creating val for RMS calculation
+volatile unsigned long lastVoltage = 0; // Time of last interrupt
+volatile float rmsVoltage;              // RMS voltage ouput
 
 // Function declarations
 void timeStamp();
@@ -97,6 +103,7 @@ void loop()
     // We print the frequency to the serial monitor
     Serial.println(frequency);
     lcdFrequency(frequency);
+    lcdVoltage(rmsVoltage);
     // We wait 0.5 second before calculating the frequency
     waitMillis(500);
     break;
@@ -106,12 +113,17 @@ void loop()
     if (zerocrosstime >= (crosstimeN - 1))
     {
       frequency = analogFrequency();
+      rmsVoltage = rmsCalculation(counter * sampleTime);
       // We print the frequency to the serial monitor
       Serial.println(frequency);
       lcdFrequency(frequency);
+      lcdVoltage(rmsVoltage);
     }
     break;
-
+  case ANALOG_SAMPLE_PASSTHROUGH:
+    lcdVoltage(OldSample);
+    waitMillis(100);
+    break;
   default:
     // Default case to reset for security
     setupDigitalWaveCounter();
@@ -168,7 +180,7 @@ double analogFrequency()
 {
   counter = 0;
   zerocrosstime = 0;
-  return (Samrate * (crosstimeN - 1) / (counter));
+  return (samrate * (crosstimeN - 1) / (counter));
 }
 
 // ---------------Low pass filter functions-----------------//
@@ -248,11 +260,14 @@ void switchOperatingMode()
   {
   // Mode switching
   case DIGITAL_WAVE_COUNTER:
-    operatingMode = ANALOG_ZERO_CROSS;
+    setupAnalogZeroCross();
     break;
   case ANALOG_ZERO_CROSS:
-    setupDigitalWaveCounter();
+
     break;
+  case ANALOG_SAMPLE_PASSTHROUGH:
+    setupDigitalWaveCounter();
+
   default:
     setupDigitalWaveCounter();
     break;
@@ -264,8 +279,9 @@ void switchOperatingMode()
 void timeStamp()
 {
   unsigned long currentTime = micros();
-  unsigned long deltaTime = currentTime - lastTime;
-  timeArray[currentIndex] = deltaTime; // Save current time stamp in the array
+  timeArray[currentIndex] = currentTime - lastTime;      // Save current time stamp in the array
+  rmsSum(analogRead(ADCPin), currentTime - lastVoltage); // Lat voltage measurement
+  rmsVoltage = rmsCalculation(currentTime - lastTime);
   lastTime = currentTime;
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
@@ -295,6 +311,13 @@ void Timer5_digitalWaveCounter()
   rmsSum(analogRead(ADCPin), sampleTime);
 }
 
+void Timer5_analogSamplePassthrough()
+{
+  newSample = lowPassFilter(analogRead(ADCPin), OldSample);
+  analogWrite(DACPin, newSample);
+  OldSample = newSample;
+}
+
 //--------------------------Mode setup functions--------------------------//
 void setupDigitalWaveCounter()
 {
@@ -311,17 +334,30 @@ void setupAnalogZeroCross()
 {
   // Setup for analog zero cross
   operatingMode = ANALOG_ZERO_CROSS;
-  // We set our interrupt to trigger the interupt function when value reaches HIGH
+  // Detaching interrupt
   detachInterrupt(digitalPinToInterrupt(interruptPin));
   counter = 0;
   setTimer5(analogSampleRate, Timer5_analogZeroCross);
+}
+
+void setupAnalogSamplePassthrough()
+{
+  // Setup for analog sample passthrough
+  operatingMode = ANALOG_SAMPLE_PASSTHROUGH;
+  // Detaching interrupt and resetting lcd
+  detachInterrupt(digitalPinToInterrupt(interruptPin));
+  lcdReset();
+  lcdFrequency(0);
+
+  // Setting timer to analog sample rate and attaching interrupt
+  setTimer5(analogSampleRate, Timer5_analogSamplePassthrough);
 }
 
 void setTimer5(float sampleRate, voidFuncPtr callback)
 {
   MyTimer5.end();
 
-  Samrate = sampleRate;
+  samrate = sampleRate;
   sampleTime = 1 / sampleRate;
 
   lowPassFilterSetup(sampleTime);
