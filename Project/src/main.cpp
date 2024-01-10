@@ -114,11 +114,12 @@ void loop()
   // print and calculation of frequency
 
  // If function for analog calculating frequency
+ // 1.0989010989 factor since MyTimer5 runs 91 times at a 100 times rate
  // 0.9739943508327652 factor for 1000Hz
  // 1.086840767 factor for 10000Hz
   if (zerocrosstime >= (crosstimeN-1)) {
 
-    freq = (Samrate*(crosstimeN-1)/(counter))*1.086840767;
+    freq = (Samrate*(crosstimeN-1)/(counter));
 
     counter = 0;
     zerocrosstime = 0;
@@ -218,19 +219,21 @@ void waitMicros(unsigned long us)
 
 void Timer5_IRQ() {
   
-  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha);
+  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha); // Data through low pass filter
 
-    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) {
+    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) { // Detects zero crossing
 
-      zerocrosstime++;
+      zerocrosstime++; // Counts zero crossings
 
     } else {
 
-      counter++;
+      counter++; // Counts number of samples (that aren't zero crossings)
 
     }
-   OldSample = newSample;
-}
+
+   OldSample = newSample; // Updates old sample
+
+  }
 
 
 
