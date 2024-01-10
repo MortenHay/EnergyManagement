@@ -34,12 +34,14 @@ volatile double val = 0;                //Creating val for analog read
 const float Samrate = 10000; //Sampling rate for MyTimer5
 volatile double Amplitude = 511; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-double freq = 0; //Creating val for frequency
+volatile double freq = 0; //Creating val for frequency
 volatile float newSample = 0; //Creating val for low pass filter 
 volatile float OldSample = 0; //Creating val for low pass filter
 const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
+
+const int freqAlert = 7; //Creating val for frequency alert
 
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
@@ -54,7 +56,7 @@ void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
 void Timer5_IRQ();
-double analogfrequency();
+void FreqAlert();
 
 
 //Initializing 
@@ -76,6 +78,8 @@ void setup()
   pinMode(interruptPin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
+  pinMode(freqAlert, OUTPUT);
+
   //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
@@ -114,12 +118,12 @@ void loop()
  // 1.087040767 factor for 10000Hz
   if (zerocrosstime >= (crosstimeN-1)) {
 
-    freq = (Samrate*(crosstimeN-1)/(counter));
+    freq = (Samrate*(crosstimeN-1)/(counter))*1.086840767;
 
     counter = 0;
     zerocrosstime = 0;
 
-    //Serial.println(freq);
+    Serial.println(freq);
     switchState = digitalRead(switchPin);
     if(switchState){
     lcd.clear();
@@ -128,7 +132,8 @@ void loop()
     lcd.setCursor(0,1);
     lcd.print(freq,5);
     }
-
+    //Calls the function where the LED turns on and off in an interval
+    FreqAlert();
   }
 }
 
@@ -241,5 +246,18 @@ Serial.println(Analogarray[i]);
 }
 }
 
+// Part 10, frequency alert where the LED turns on and off in an interval
+void FreqAlert(){
+  if (freq <= 49.999) {
+
+    digitalWrite(freqAlert, LOW);
+
+  } else if (freq >= 50.00) {
+
+    digitalWrite(freqAlert, HIGH);
+
+  } else {
+  }
+}
 
 
