@@ -36,14 +36,14 @@ const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
 const float Samrate = 10000; //Sampling rate for MyTimer5
-volatile double Amplitude = 1.65; //Creating val for analog read
+volatile double Amplitude = 511; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 double freq = 0; //Creating val for frequency
 volatile float newSample = 0; //Creating val for low pass filter 
 volatile float OldSample = 0; //Creating val for low pass filter
 const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
 volatile double zerocrosstime = 0;
-volatile int count;
+volatile int counter = 0;
 
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
@@ -114,14 +114,25 @@ void loop()
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
   // print and calculation of frequency
 
+ // If function for analog calculating frequency
+ // 0.9739943508327652 factor for 1000Hz
+ // 1.087040767 factor for 10000Hz
   if (zerocrosstime >= (crosstimeN-1)) {
 
-    freq = (Samrate*(crosstimeN-1)/(count));
+    freq = (Samrate*(crosstimeN-1)/(counter));
 
-    count = 0;
+    counter = 0;
     zerocrosstime = 0;
 
-    
+    //Serial.println(freq);
+    switchState = digitalRead(switchPin);
+    if(switchState){
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Value: ");
+    lcd.setCursor(0,1);
+    lcd.print(freq,5);
+    }
 
   }
 
@@ -268,15 +279,13 @@ void Timer5_IRQ() {
 
     } else {
 
-      count++;
+      counter++;
 
     }
 
    OldSample = newSample;
 
-
-
-   analogWrite(DACPin,newSample);
+   //analogWrite(DACPin,newSample);
 
   }
 
@@ -288,10 +297,6 @@ for (unsigned int i = 0; i < avgSampleLength; i++){
 Analogarray[i]=val;
 Serial.println(Analogarray[i]);
 }
-}
-
-
-double analogfrequency() {
 }
 
 
