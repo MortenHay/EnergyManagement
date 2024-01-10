@@ -115,7 +115,7 @@ void loop()
 
  // If function for analog calculating frequency
  // 0.9739943508327652 factor for 1000Hz
- // 1.087040767 factor for 10000Hz
+ // 1.086840767 factor for 10000Hz
   if (zerocrosstime >= (crosstimeN-1)) {
 
     freq = (Samrate*(crosstimeN-1)/(counter))*1.086840767;
@@ -229,12 +229,8 @@ void Timer5_IRQ() {
       counter++;
 
     }
-
    OldSample = newSample;
-
-   //analogWrite(DACPin,newSample);
-
-  }
+}
 
 
 
