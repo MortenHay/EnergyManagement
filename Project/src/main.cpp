@@ -26,8 +26,8 @@ const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned 
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
 unsigned long now;
 
-const int sampleTime = 5;
-const double cutOffFrequency = 50;  // Cut off frequency for the low pass filter
+
+const double cutOffFrequency = 100;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
 double alpha;                       // Constant for the low pass filter
 
@@ -35,10 +35,14 @@ const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
-const int Samrate = 300; //Sampling rate for MyTimer5
+const float Samrate = 300; //Sampling rate for MyTimer5
 volatile double Amplitude = 1.65; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 double freq = 0; //Creating val for frequency
+volatile float newSample = 0; //Creating val for low pass filter 
+volatile float OldSample = 0; //Creating val for low pass filter
+const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
+
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -58,6 +62,9 @@ double analogfrequency();
 //Initializing 
 void setup()
 {
+  analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
+  analogReadResolution(10);  // We set the resolution of the ADC to 10 bit  
+
 
   Serial.begin(9600); // Serial communication rate
   for (unsigned int i = 0; i < avgSampleLength; i++)
@@ -74,7 +81,7 @@ void setup()
   //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
-  // AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
+  AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
   
    // define frequency of interrupt
@@ -240,12 +247,15 @@ void waitMicros(unsigned long us)
 
 
 void Timer5_IRQ() {
-  val = (double(analogRead(ADCPin))/1023)*3.3;
-  Analogarray[currentIndex++]=val;
+  
+  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha);
 
- if(currentIndex == avgSampleLength){
-    currentIndex = 0;
-}
+  OldSample = newSample;
+
+    
+
+  analogWrite(DACPin,newSample);
+
 }
 
 
