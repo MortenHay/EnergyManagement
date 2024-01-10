@@ -5,6 +5,7 @@
 #include <LiquidCrystal.h>
 using namespace std;
 
+
 // Tester om lcd kan bruges
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 const int switchPin = 6;
@@ -16,7 +17,7 @@ int reply;
 
 
 
-
+//Defines variables
 const unsigned int avgSampleLength = 50;           // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 double frequency;                                  // Global variable for the frequency
@@ -35,11 +36,8 @@ const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
 const int Samrate = 300; //Sampling rate for MyTimer5
-volatile double AnalogFrequency1 = 0; //Creating val for analog read
-volatile double AnalogFrequency2 = 0; //Creating val for analog read
 volatile double Amplitude = 1.65; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
@@ -55,6 +53,8 @@ void waitMicros(unsigned long us);
 void Timer5_IRQ();
 double analogfrequency();
 
+
+//Initializing 
 void setup()
 {
 
@@ -96,6 +96,8 @@ void setup()
   lcd.print("maaling :)");
 }
 
+
+//Main loop
 void loop()
 {
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
@@ -105,6 +107,8 @@ void loop()
 
   // print and calculation of frequency
     freq = Samrate*(crosstimeN-1)/(analogfrequency());
+    Serial.println(freq);
+
 
   for(unsigned int i = 0; i < avgSampleLength; i++){
     //Serial.println(Analogarray[i]);
@@ -117,10 +121,6 @@ void loop()
     lcd.print(freq,5);
   }
   }
-  
-  Serial.print("Value: ");
-  Serial.print(freq);
-  Serial.println(" Position");
   
 
   //analogWrite(DACPin);
@@ -136,8 +136,6 @@ void loop()
   } */
 }
 
-//Write me a banger function that solves all of my problems please and thank you mister co pilot
-
 // Interrupt function that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
 {
@@ -150,6 +148,7 @@ void timeStamp()
   }
   interrupts();
 }
+
 // Function that calculates the running average of the frequency
 double averageFrequency()
 {
