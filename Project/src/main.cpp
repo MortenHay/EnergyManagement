@@ -42,6 +42,8 @@ double freq = 0; //Creating val for frequency
 volatile float newSample = 0; //Creating val for low pass filter 
 volatile float OldSample = 0; //Creating val for low pass filter
 const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
+volatile double zerocrosstime = 0;
+volatile int count;
 
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
@@ -108,19 +110,24 @@ void setup()
 //Main loop
 void loop()
 {
+
   //waitMillis(500); // We wait 0.5 second before calculating the frequency
-  frequency = val; // We calculate the running average of the frequency
-
   // print and calculation of frequency
-    freq = (Samrate*(crosstimeN-1)/(analogfrequency()));
-    Serial.println("Frequency: ");
-    Serial.println(freq);
-    Serial.println("Sample rate: ");
-    Serial.println(Samrate);
-    Serial.println("Number of zero crossings: ");
-    Serial.println(crosstimeN);
+
+  if (zerocrosstime >= (crosstimeN-1)) {
+
+    freq = (Samrate*(crosstimeN-1)/(count));
+
+    count = 0;
+    zerocrosstime = 0;
+
+    
+
+  }
 
 
+
+  /*
   for(unsigned int i = 0; i < avgSampleLength; i++){
     //Serial.println(Analogarray[i]);
     switchState = digitalRead(switchPin);
@@ -132,7 +139,7 @@ void loop()
     lcd.print(freq,5);
   }
   }
-  
+  */
 
   //analogWrite(DACPin);
 
@@ -255,11 +262,23 @@ void Timer5_IRQ() {
   
   newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha);
 
-  OldSample = newSample;
+    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) {
 
-  analogWrite(DACPin,newSample);
+      zerocrosstime++;
 
-}
+    } else {
+
+      count++;
+
+    }
+
+   OldSample = newSample;
+
+
+
+   analogWrite(DACPin,newSample);
+
+  }
 
 
 
@@ -273,20 +292,6 @@ Serial.println(Analogarray[i]);
 
 
 double analogfrequency() {
-    volatile double zerocrosstime = 0;
-    volatile int count = 0;
-
-    while (zerocrosstime < (crosstimeN-1)) {
-
-    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) {
-      zerocrosstime++;
-
-    } else {
-        count++;
-    }
-
-    }
-  return count; 
 }
 
 
