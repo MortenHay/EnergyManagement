@@ -35,7 +35,7 @@ const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
-const float Samrate = 300; //Sampling rate for MyTimer5
+const float Samrate = 10000; //Sampling rate for MyTimer5
 volatile double Amplitude = 1.65; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 double freq = 0; //Creating val for frequency
@@ -113,7 +113,12 @@ void loop()
 
   // print and calculation of frequency
     freq = (Samrate*(crosstimeN-1)/(analogfrequency()));
+    Serial.println("Frequency: ");
     Serial.println(freq);
+    Serial.println("Sample rate: ");
+    Serial.println(Samrate);
+    Serial.println("Number of zero crossings: ");
+    Serial.println(crosstimeN);
 
 
   for(unsigned int i = 0; i < avgSampleLength; i++){
@@ -252,8 +257,6 @@ void Timer5_IRQ() {
 
   OldSample = newSample;
 
-    
-
   analogWrite(DACPin,newSample);
 
 }
@@ -270,20 +273,18 @@ Serial.println(Analogarray[i]);
 
 
 double analogfrequency() {
-    volatile double oldval;
     volatile double zerocrosstime = 0;
     volatile int count = 0;
 
     while (zerocrosstime < (crosstimeN-1)) {
 
-    if(val >= Amplitude/2 && oldval < Amplitude/2) {
+    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) {
       zerocrosstime++;
 
     } else {
         count++;
     }
-    
-    oldval = val;
+
     }
   return count; 
 }
