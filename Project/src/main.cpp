@@ -218,9 +218,20 @@ void rmsSum(float voltage, unsigned long time)
 
 float rmsCalculation(unsigned long period)
 {
-  float rms = sqrt(voltageSquareSum / period);
+  float rms = sqrt(float(voltageSquareSum) / period);
   voltageSquareSum = 0;
   return rms;
+}
+
+//--------------------------Analog to voltage--------------------------//
+float analogToBoardVoltage(int analogValue)
+{
+  return (analogValue >> 10) * 3.3;
+}
+
+float analogToGridVoltage(int analogValue)
+{
+  return 340 * ((analogValue >> 10) - 1);
 }
 
 //--------------------------LCD functions--------------------------//
@@ -292,7 +303,7 @@ void timeStamp()
 void Timer5_analogZeroCross()
 {
   newSample = lowPassFilter(analogRead(ADCPin), OldSample);
-  rmsSum(newSample, sampleTime);
+  rmsSum(analogToGridVoltage(newSample), sampleTime);
   counter++;
 
   if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
