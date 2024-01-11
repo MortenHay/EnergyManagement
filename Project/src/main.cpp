@@ -34,14 +34,13 @@ volatile double Amplitude = 511; // Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
-const float analogSampleRate = 10000; // Sample rate for the analog zero cross
+const float analogSampleRate = 1000; // Sample rate for the analog zero cross
 
 // Low pass filter variables
 const double cutOffFrequency = 100; // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
 double alpha;                       // Constant for the low pass filter
 float sampleTime;                   // Sample time for the low pass filter in seconds
-volatile float newSample = 0;       // Creating val for low pass filter
 volatile float OldSample = 0;       // Creating val for low pass filter
 
 // Operating mode variables
@@ -54,6 +53,7 @@ volatile float analogSquareSum = 0;     // Creating val for RMS calculation
 volatile unsigned long lastVoltage = 0; // Time of last interrupt
 volatile float rmsAnalog = 0;           // RMS voltage ouput
 volatile float rmsVoltage = 0;          // RMS voltage ouput
+const float voltageOffset = 1.65;       // Voltage offset for the board
 
 // write me a wave counting function
 
@@ -77,18 +77,19 @@ void setupDigitalWaveCounter();
 void setupAnalogZeroCross();
 void setupAnalogSamplePassthrough();
 void setTimer5(float sampleRate, voidFuncPtr callback);
+void switchOperatingMode();
 
 // Initializing
 void setup()
 {
-  Serial.begin(9600); // Serial communication rate
+  analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
+  analogReadResolution(10);  // We set the resolution of the ADC to 10 bit
+  Serial.begin(9600);        // Serial communication rate
   while (!Serial)
     ; // Wait for serial monitor to open
 
   Serial.println("Setup started!");
-  AdcBooster();              // We boost the ADC clock frequency to 2 MHz
-  analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
-  analogReadResolution(10);  // We set the resolution of the ADC to 10 bit
+  AdcBooster(); // We boost the ADC clock frequency to 2 MHz
 
   // pins
   Serial.println("Setting up pins");
@@ -108,6 +109,7 @@ void setup()
 
   Serial.println("Setting up interrupts");
   setupDigitalWaveCounter(); // We set the initial operating mode to digital wave counter
+  attachInterrupt(digitalPinToInterrupt(modePin), switchOperatingMode, RISING);
 
   Serial.println("Setup done!");
 }
@@ -197,9 +199,10 @@ double digitalFrequency()
 
 double analogFrequency()
 {
+  double freq = (samrate * (crosstimeN - 1) / (counter));
   counter = 0;
   zerocrosstime = 0;
-  return (samrate * (crosstimeN - 1) / (counter));
+  return freq;
 }
 
 // ---------------Low pass filter functions-----------------//
@@ -232,7 +235,7 @@ void waitMicros(unsigned long us)
 // ---------------RMS functions----------------//
 void rmsSum(float value, unsigned long time)
 {
-  // value -= 511;
+  value -= 511;
   analogSquareSum += value * value * time;
 }
 
@@ -246,7 +249,7 @@ float rmsCalculation(unsigned long period)
 //--------------------------Analog to voltage--------------------------//
 float analogToBoardVoltage(float analogValue)
 {
-  return (analogValue / 1023) * 3.3;
+  return (analogValue / 1023) * 3.3 + voltageOffset;
 }
 
 float analogToGridVoltage(float analogValue)
@@ -322,7 +325,7 @@ void timeStamp()
 
 void Timer5_analogZeroCross()
 {
-  newSample = lowPassFilter(analogRead(ADCPin), OldSample);
+  float newSample = lowPassFilter(analogRead(ADCPin), OldSample);
   rmsSum(newSample, sampleTime);
   counter++;
 
@@ -338,15 +341,16 @@ void Timer5_analogZeroCross()
 
 void Timer5_digitalWaveCounter()
 {
-  lastVoltage = micros();
-  rmsSum(analogRead(ADCPin), sampleTime);
+  unsigned long now = micros();
+  rmsSum(analogRead(ADCPin), (now - lastVoltage) * 1e6);
+  lastVoltage = now;
 }
 
 void Timer5_analogSamplePassthrough()
 {
-  newSample = lowPassFilter(analogRead(ADCPin), OldSample);
-  analogWrite(DACPin, newSample);
+  float newSample = lowPassFilter(analogRead(ADCPin), OldSample);
   OldSample = newSample;
+  analogWrite(DACPin, newSample);
 }
 
 //--------------------------Mode setup functions--------------------------//
