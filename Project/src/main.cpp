@@ -50,9 +50,12 @@ volatile unsigned long switchingTime = 0; // Time of last switch between operati
 volatile float samrate;                   // Sampling rate for MyTimer5
 
 // RMS variables
-volatile int voltageSquareSum = 0;      // Creating val for RMS calculation
+volatile int analogSquareSum = 0;       // Creating val for RMS calculation
 volatile unsigned long lastVoltage = 0; // Time of last interrupt
-volatile float rmsVoltage;              // RMS voltage ouput
+volatile float rmsAnalog = 0;           // RMS voltage ouput
+volatile float rmsVoltage = 0;          // RMS voltage ouput
+
+// write me a wave counting function
 
 // Function declarations
 void timeStamp();
@@ -103,6 +106,7 @@ void loop()
     // We print the frequency to the serial monitor
     Serial.println(frequency);
     lcdFrequency(frequency);
+    rmsVoltage = analogToGridVoltage(rmsAnalog);
     lcdVoltage(rmsVoltage);
     // We wait 0.5 second before calculating the frequency
     waitMillis(500);
@@ -113,7 +117,7 @@ void loop()
     if (zerocrosstime >= (crosstimeN - 1))
     {
       frequency = analogFrequency();
-      rmsVoltage = rmsCalculation(counter * sampleTime);
+      rmsVoltage = analogToGridVoltage(rmsCalculation(counter * sampleTime));
       // We print the frequency to the serial monitor
       Serial.println(frequency);
       lcdFrequency(frequency);
@@ -211,15 +215,16 @@ void waitMicros(unsigned long us)
 }
 
 // ---------------RMS functions----------------//
-void rmsSum(float voltage, unsigned long time)
+void rmsSum(float value, unsigned long time)
 {
-  voltageSquareSum += voltage * voltage * time;
+  value -= 511;
+  analogSquareSum += value * value * time;
 }
 
 float rmsCalculation(unsigned long period)
 {
-  float rms = sqrt(float(voltageSquareSum) / period);
-  voltageSquareSum = 0;
+  float rms = sqrt(float(analogSquareSum) / period);
+  analogSquareSum = 0;
   return rms;
 }
 
@@ -292,7 +297,7 @@ void timeStamp()
   unsigned long currentTime = micros();
   timeArray[currentIndex] = currentTime - lastTime;      // Save current time stamp in the array
   rmsSum(analogRead(ADCPin), currentTime - lastVoltage); // Lat voltage measurement
-  rmsVoltage = rmsCalculation(currentTime - lastTime);
+  rmsAnalog = rmsCalculation(currentTime - lastTime);
   lastTime = currentTime;
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
@@ -303,7 +308,7 @@ void timeStamp()
 void Timer5_analogZeroCross()
 {
   newSample = lowPassFilter(analogRead(ADCPin), OldSample);
-  rmsSum(analogToGridVoltage(newSample), sampleTime);
+  rmsSum(newSample, sampleTime);
   counter++;
 
   if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
