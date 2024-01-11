@@ -117,9 +117,9 @@ void loop()
  // 1.0989010989 factor since MyTimer5 runs 91 times at a 100 times rate
  // 0.9739943508327652 factor for 1000Hz
  // 1.086840767 factor for 10000Hz
-  if (zerocrosstime >= (crosstimeN-1)) {
+  if (zerocrosstime >= (crosstimeN)) {
 
-    freq = (Samrate*(crosstimeN-1)/(counter));
+    freq = (Samrate*(crosstimeN)/(counter));
 
     counter = 0;
     zerocrosstime = 0;
@@ -223,6 +223,7 @@ void Timer5_IRQ() {
 
     if(newSample >= Amplitude/2 && OldSample < Amplitude/2) { // Detects zero crossing
 
+      counter++;
       zerocrosstime++; // Counts zero crossings
 
     } else {
@@ -259,4 +260,12 @@ void FreqAlert(){
   }
 }
 
+void mytimetest(){
 
+  while (taller < 100)
+  {
+    taller++;
+  }
+
+
+}
