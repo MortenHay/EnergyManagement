@@ -23,7 +23,7 @@ const int modePin = 6;      // Pin for switching between operating modes
 const int switchPin = 6;
 
 // Digital wave counter variables
-const unsigned int avgSampleLength = 3;            // Number og samples to average over in the running average
+const unsigned int avgSampleLength = 10;           // Number og samples to average over in the running average
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 volatile unsigned int currentIndex = 0;            // We create the empty time stamp array used for the interrupt
 volatile unsigned long lastTime = 0;
@@ -50,7 +50,7 @@ volatile unsigned long switchingTime = 0; // Time of last switch between operati
 volatile float samrate;                   // Sampling rate for MyTimer5
 
 // RMS variables
-volatile int analogSquareSum = 0;       // Creating val for RMS calculation
+volatile float analogSquareSum = 0;     // Creating val for RMS calculation
 volatile unsigned long lastVoltage = 0; // Time of last interrupt
 volatile float rmsAnalog = 0;           // RMS voltage ouput
 volatile float rmsVoltage = 0;          // RMS voltage ouput
@@ -67,30 +67,47 @@ void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
 void Timer5_analogZeroCross();
 void rmsSum(float voltage, unsigned long time);
+float rmsCalculation(unsigned long period);
+float analogToBoardVoltage(float analogValue);
+float analogToGridVoltage(float analogValue);
+void lcdFrequency(double freq);
+void lcdVoltage(float voltage);
+void lcdReset();
+void setupDigitalWaveCounter();
+void setupAnalogZeroCross();
+void setupAnalogSamplePassthrough();
+void setTimer5(float sampleRate, voidFuncPtr callback);
 
 // Initializing
 void setup()
 {
   Serial.begin(9600); // Serial communication rate
+  while (!Serial)
+    ; // Wait for serial monitor to open
 
+  Serial.println("Setup started!");
   AdcBooster();              // We boost the ADC clock frequency to 2 MHz
   analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
   analogReadResolution(10);  // We set the resolution of the ADC to 10 bit
 
   // pins
+  Serial.println("Setting up pins");
   pinMode(interruptPin, INPUT);
   pinMode(modePin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
   pinMode(switchPin, INPUT);
 
+  // define frequency of interrupt
+  MyTimer5.begin(1); // 200=for toggle every 5msec
+
   // lcd code
+  Serial.println("Setting up LCD");
   lcd.begin(16, 2);
   lcdReset();
 
+  Serial.println("Setting up interrupts");
   setupDigitalWaveCounter(); // We set the initial operating mode to digital wave counter
-  while (!Serial)
-    ; // Wait for serial monitor to open
 
   Serial.println("Setup done!");
 }
@@ -103,10 +120,8 @@ void loop()
   case DIGITAL_WAVE_COUNTER:
     // We calculate the frequency using the running average
     frequency = digitalFrequency();
-    // We print the frequency to the serial monitor
-    Serial.println(frequency);
     lcdFrequency(frequency);
-    rmsVoltage = analogToGridVoltage(rmsAnalog);
+    rmsVoltage = analogToBoardVoltage(rmsAnalog);
     lcdVoltage(rmsVoltage);
     // We wait 0.5 second before calculating the frequency
     waitMillis(500);
@@ -217,26 +232,26 @@ void waitMicros(unsigned long us)
 // ---------------RMS functions----------------//
 void rmsSum(float value, unsigned long time)
 {
-  value -= 511;
+  // value -= 511;
   analogSquareSum += value * value * time;
 }
 
 float rmsCalculation(unsigned long period)
 {
-  float rms = sqrt(float(analogSquareSum) / period);
+  float rms = sqrt(analogSquareSum / float(period));
   analogSquareSum = 0;
   return rms;
 }
 
 //--------------------------Analog to voltage--------------------------//
-float analogToBoardVoltage(int analogValue)
+float analogToBoardVoltage(float analogValue)
 {
-  return (analogValue >> 10) * 3.3;
+  return (analogValue / 1023) * 3.3;
 }
 
-float analogToGridVoltage(int analogValue)
+float analogToGridVoltage(float analogValue)
 {
-  return 340 * ((analogValue >> 10) - 1);
+  return 340 * ((analogValue / 1023));
 }
 
 //--------------------------LCD functions--------------------------//
@@ -279,7 +294,7 @@ void switchOperatingMode()
     setupAnalogZeroCross();
     break;
   case ANALOG_ZERO_CROSS:
-
+    setupAnalogSamplePassthrough();
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
     setupDigitalWaveCounter();
@@ -295,9 +310,9 @@ void switchOperatingMode()
 void timeStamp()
 {
   unsigned long currentTime = micros();
-  timeArray[currentIndex] = currentTime - lastTime;      // Save current time stamp in the array
-  rmsSum(analogRead(ADCPin), currentTime - lastVoltage); // Lat voltage measurement
-  rmsAnalog = rmsCalculation(currentTime - lastTime);
+  timeArray[currentIndex] = currentTime - lastTime;              // Save current time stamp in the array
+  rmsSum(analogRead(ADCPin), (currentTime - lastVoltage) * 1e6); // Lat voltage measurement
+  rmsAnalog = rmsCalculation((currentTime - lastTime) * 1e6);
   lastTime = currentTime;
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
@@ -340,9 +355,12 @@ void setupDigitalWaveCounter()
   // Setup for digital wave counter
   operatingMode = DIGITAL_WAVE_COUNTER;
   // The timeArray is reset to 0
+  Serial.println("Resetting time array");
   resetTimeArray();
   // We set our interrupt to trigger the interupt function when value reaches HIGH
+  Serial.println("Setting up interrupt");
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
+  Serial.println("Setting up timer");
   setTimer5(digitalSampleRate, Timer5_digitalWaveCounter);
 }
 
@@ -372,20 +390,22 @@ void setupAnalogSamplePassthrough()
 void setTimer5(float sampleRate, voidFuncPtr callback)
 {
   MyTimer5.end();
-
+  Serial.println("Timer ended");
   samrate = sampleRate;
   sampleTime = 1 / sampleRate;
 
   lowPassFilterSetup(sampleTime);
+  Serial.println("Low pass filter setup done");
 
   // define frequency of interrupt
   MyTimer5.begin(sampleRate); // 200=for toggle every 5msec
-
+  Serial.println("Timer begun");
   // define the interrupt callback function
   MyTimer5.attachInterrupt(Timer5_analogZeroCross);
-
+  Serial.println("Interrupt attached");
   // start the timer
   MyTimer5.start();
+  Serial.println("Timer started");
 }
 
 // Function to reset the time stamp array to 0
