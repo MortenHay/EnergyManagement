@@ -259,13 +259,3 @@ void FreqAlert(){
   } else {
   }
 }
-
-void mytimetest(){
-
-  while (taller < 100)
-  {
-    taller++;
-  }
-
-
-}
