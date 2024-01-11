@@ -41,6 +41,7 @@ const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in 
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
 
+const int kalibrering = 9;
 const int freqAlert = 7; //Creating val for frequency alert
 
 
@@ -79,6 +80,7 @@ void setup()
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
   pinMode(freqAlert, OUTPUT);
+  pinMode(kalibrering, OUTPUT);
 
   //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
@@ -117,6 +119,7 @@ void loop()
  // 1.0989010989 factor since MyTimer5 runs 91 times at a 100 times rate
  // 0.9739943508327652 factor for 1000Hz
  // 1.086840767 factor for 10000Hz
+  digitalWrite(kalibrering, HIGH); // skal måske fjernes, ikke testet endnu
   if (zerocrosstime >= (crosstimeN)) {
 
     freq = (Samrate*(crosstimeN)/(counter));
@@ -135,6 +138,7 @@ void loop()
     }
     //Calls the function where the LED turns on and off in an interval
     FreqAlert();
+    digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
   }
 }
 
@@ -248,12 +252,14 @@ Serial.println(Analogarray[i]);
 
 // Part 10, frequency alert where the LED turns on and off in an interval
 void FreqAlert(){
-  if (freq <= 49.999) {
+  if (freq <= 49.9) {
 
+    //FCR N skal opjustere
     digitalWrite(freqAlert, LOW);
 
-  } else if (freq >= 50.00) {
+  } else if (freq >= 50.1) {
 
+    //FCR N skal nedjusteres 
     digitalWrite(freqAlert, HIGH);
 
   } else {
