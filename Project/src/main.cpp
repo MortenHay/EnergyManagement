@@ -34,12 +34,15 @@ volatile double val = 0;                //Creating val for analog read
 const float Samrate = 10000; //Sampling rate for MyTimer5
 volatile double Amplitude = 511; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-double freq = 0; //Creating val for frequency
+volatile double freq = 0; //Creating val for frequency
 volatile float newSample = 0; //Creating val for low pass filter 
 volatile float OldSample = 0; //Creating val for low pass filter
 const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
+
+const int kalibrering = 9;
+const int freqAlert = 7; //Creating val for frequency alert
 
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
@@ -54,7 +57,7 @@ void AdcBooster();
 void waitMillis(unsigned long ms);
 void waitMicros(unsigned long us);
 void Timer5_IRQ();
-double analogfrequency();
+void FreqAlert();
 
 
 //Initializing 
@@ -76,6 +79,9 @@ void setup()
   pinMode(interruptPin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
+  pinMode(freqAlert, OUTPUT);
+  pinMode(kalibrering, OUTPUT);
+
   //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
   double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
@@ -110,16 +116,18 @@ void loop()
   // print and calculation of frequency
 
  // If function for analog calculating frequency
+ // 1.0989010989 factor since MyTimer5 runs 91 times at a 100 times rate
  // 0.9739943508327652 factor for 1000Hz
- // 1.087040767 factor for 10000Hz
-  if (zerocrosstime >= (crosstimeN-1)) {
+ // 1.086840767 factor for 10000Hz
+  digitalWrite(kalibrering, HIGH); // skal måske fjernes, ikke testet endnu
+  if (zerocrosstime >= (crosstimeN)) {
 
-    freq = (Samrate*(crosstimeN-1)/(counter));
+    freq = (Samrate*(crosstimeN)/(counter));
 
     counter = 0;
     zerocrosstime = 0;
 
-    //Serial.println(freq);
+    Serial.println(freq);
     switchState = digitalRead(switchPin);
     if(switchState){
     lcd.clear();
@@ -128,7 +136,9 @@ void loop()
     lcd.setCursor(0,1);
     lcd.print(freq,5);
     }
-
+    //Calls the function where the LED turns on and off in an interval
+    FreqAlert();
+    digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
   }
 }
 
@@ -213,21 +223,20 @@ void waitMicros(unsigned long us)
 
 void Timer5_IRQ() {
   
-  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha);
+  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha); // Data through low pass filter
 
-    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) {
+    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) { // Detects zero crossing
 
-      zerocrosstime++;
+      counter++;
+      zerocrosstime++; // Counts zero crossings
 
     } else {
 
-      counter++;
+      counter++; // Counts number of samples (that aren't zero crossings)
 
     }
 
-   OldSample = newSample;
-
-   //analogWrite(DACPin,newSample);
+   OldSample = newSample; // Updates old sample
 
   }
 
@@ -241,5 +250,18 @@ Serial.println(Analogarray[i]);
 }
 }
 
+// Part 10, frequency alert where the LED turns on and off in an interval
+void FreqAlert(){
+  if (freq <= 49.9) {
 
+    //FCR N skal opjustere
+    digitalWrite(freqAlert, LOW);
 
+  } else if (freq >= 50.1) {
+
+    //FCR N skal nedjusteres 
+    digitalWrite(freqAlert, HIGH);
+
+  } else {
+  }
+}
