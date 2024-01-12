@@ -32,9 +32,7 @@ const float digitalSampleRate = 1000; // Sample rate for the digital wave counte
 // Analog zero cross variables
 volatile double Amplitude = 511; // Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-
-volatile float OldSample = 0; //Creating val for low pass filter
-const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
+volatile float OldSample = 0;    // Creating val for low pass filter
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
 const float analogSampleRate = 1000; // Sample rate for the analog zero cross
@@ -46,16 +44,13 @@ double alpha;                       // Constant for the low pass filter
 float sampleTime;                   // Sample time for the low pass filter in seconds
 volatile float OldSample = 0;       // Creating val for low pass filter
 
-
 // Operating mode variables
 volatile byte operatingMode;              // Operating mode for the program
 volatile unsigned long switchingTime = 0; // Time of last switch between operating modes
 volatile float samrate;                   // Sampling rate for MyTimer5
 
 const int kalibrering = 9;
-const int freqAlert = 7; //Creating val for frequency alert
-
-
+const int freqAlert = 7; // Creating val for frequency alert
 
 // RMS variables
 volatile float analogSquareSum = 0;     // Creating val for RMS calculation
@@ -87,6 +82,9 @@ void setupAnalogZeroCross();
 void setupAnalogSamplePassthrough();
 void setTimer5(float sampleRate, voidFuncPtr callback);
 void switchOperatingMode();
+void lowPassFilterSetup(double period);
+float lowPassFilter(float newSample, float previousSample);
+void FreqAlert(float freq);
 
 // Initializing
 
@@ -159,7 +157,7 @@ void loop()
     setupDigitalWaveCounter();
     break;
 
-    FreqAlert();
+    FreqAlert(frequency);
     digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
   }
 
@@ -269,7 +267,6 @@ float analogToGridVoltage(float analogValue)
   return 340 * ((analogValue / 1023));
 }
 
-
 //--------------------------LCD functions--------------------------//
 void lcdFrequency(double freq)
 {
@@ -297,13 +294,11 @@ void lcdReset()
 void switchOperatingMode()
 {
 
-
   if (millis() - switchingTime < 500)
   {
     // debounce
     return;
   }
-
 
   switch (operatingMode)
   {
@@ -344,7 +339,6 @@ void Timer5_analogZeroCross()
   rmsSum(newSample, sampleTime);
   counter++;
 
-
   if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
   {
     zerocrosstime++;
@@ -383,7 +377,6 @@ void setupDigitalWaveCounter()
   Serial.println("Setting up timer");
   setTimer5(digitalSampleRate, Timer5_digitalWaveCounter);
 }
-
 
 void setupAnalogZeroCross()
 {
@@ -452,20 +445,20 @@ void AdcBooster()
   ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
   while (ADC->STATUS.bit.SYNCBUSY == 1)
     ; // Wait for synchronization
-
-  
+}
 // Part 10, frequency alert where the LED turns on and off in an interval
-void FreqAlert(){
-  if (freq <= 49.9) {
+void FreqAlert(float freq)
+{
+  if (freq <= 49.9)
+  {
 
-    //FCR N skal opjustere
+    // FCR N skal opjustere
     digitalWrite(freqAlert, LOW);
-
-  } else if (freq >= 50.1) {
-
-    //FCR N skal nedjusteres 
-    digitalWrite(freqAlert, HIGH);
-
   }
+  else if (freq >= 50.1)
+  {
 
+    // FCR N skal nedjusteres
+    digitalWrite(freqAlert, HIGH);
+  }
 }
