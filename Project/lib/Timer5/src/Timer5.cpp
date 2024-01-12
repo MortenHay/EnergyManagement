@@ -1,5 +1,5 @@
 /*
-  Timer5 library for Arduino Zero and MKR1000 
+  Timer5 library for Arduino Zero and MKR1000
   (only for SAMD arch.)
   Copyright (c) 2016 Michael Blank, OpenSX. All right reserved.
 
@@ -28,29 +28,29 @@
 /*Global variables*/
 voidFuncPtr Timer_callBack = NULL;
 
-void Timer5Class::begin(uint16_t value) {
-	
-	/*Modules configuration */
+void Timer5Class::begin(uint16_t value)
+{
 
-	tcConfigure(value);
+  /*Modules configuration */
+
+  tcConfigure(value);
 }
 
-void Timer5Class::end() {
-	tcDisable();
-	tcReset();
-
+void Timer5Class::end()
+{
+  tcDisable();
+  tcReset();
 }
 
 /*void AudioZeroClass::prepare(int volume){
 //Not Implemented yet
 }*/
 
-void Timer5Class::start(void) {
-  
-      tcStartCounter();
+void Timer5Class::start(void)
+{
+
+  tcStartCounter();
 }
-
-
 
 /**
  * Configures the TC to generate events at the sample frequency.
@@ -58,38 +58,40 @@ void Timer5Class::start(void) {
  * Configures the TC in Frequency Generation mode, with an event output once
  * each time the audio sample frequency period expires.
  */
- void Timer5Class::tcConfigure(uint16_t rate)  
+void Timer5Class::tcConfigure(uint16_t rate)
 {
-	// Enable GCLK for TCC2 and TC5 (timer counter input clock)
-	GCLK->CLKCTRL.reg = (uint16_t) (GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK1 | GCLK_CLKCTRL_ID(GCM_TC4_TC5)) ;
-	//------------                                                  (GCLK1=32kHz)  was   0 = 48Mhz
-	while (GCLK->STATUS.bit.SYNCBUSY);
+  // Enable GCLK for TCC2 and TC5 (timer counter input clock)
+  GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK1 | GCLK_CLKCTRL_ID(GCM_TC4_TC5));
+  //------------                                                  (GCLK1=32kHz)  was   0 = 48Mhz
+  while (GCLK->STATUS.bit.SYNCBUSY)
+    ;
 
-	tcReset();
+  tcReset();
 
-	// Set Timer counter Mode to 16 bits
-	TC5->COUNT16.CTRLA.reg |= TC_CTRLA_MODE_COUNT16;
+  // Set Timer counter Mode to 16 bits
+  TC5->COUNT16.CTRLA.reg |= TC_CTRLA_MODE_COUNT16;
 
-	// Set TC5 mode as match frequency
-	TC5->COUNT16.CTRLA.reg |= TC_CTRLA_WAVEGEN_MFRQ;
+  // Set TC5 mode as match frequency
+  TC5->COUNT16.CTRLA.reg |= TC_CTRLA_WAVEGEN_MFRQ;
 
   // prescaler DIV1 (=no prescaler div)
-	TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1 | TC_CTRLA_ENABLE;
+  TC5->COUNT16.CTRLA.reg |= TC_CTRLA_PRESCALER_DIV1 | TC_CTRLA_ENABLE;
 
-	TC5->COUNT16.CC[0].reg = (uint16_t) (32768/rate -1); //value; // (SystemCoreClock / sampleRate - 1);
-	while (tcIsSyncing());
-	
-	// Configure interrupt request
-	NVIC_DisableIRQ(TC5_IRQn);
-	NVIC_ClearPendingIRQ(TC5_IRQn);
-	NVIC_SetPriority(TC5_IRQn, 0);
-	NVIC_EnableIRQ(TC5_IRQn);
+  TC5->COUNT16.CC[0].reg = (uint16_t)(32768 / rate - 1); // value; // (SystemCoreClock / sampleRate - 1);
+  while (tcIsSyncing())
+    ;
 
-	// Enable the TC5 interrupt request
-	TC5->COUNT16.INTENSET.bit.MC0 = 1;
-	while (tcIsSyncing());
-}	
+  // Configure interrupt request
+  NVIC_DisableIRQ(TC5_IRQn);
+  NVIC_ClearPendingIRQ(TC5_IRQn);
+  NVIC_SetPriority(TC5_IRQn, 0);
+  NVIC_EnableIRQ(TC5_IRQn);
 
+  // Enable the TC5 interrupt request
+  TC5->COUNT16.INTENSET.bit.MC0 = 1;
+  while (tcIsSyncing())
+    ;
+}
 
 bool Timer5Class::tcIsSyncing()
 {
@@ -101,22 +103,26 @@ void Timer5Class::tcStartCounter()
   // Enable TC
 
   TC5->COUNT16.CTRLA.reg |= TC_CTRLA_ENABLE;
-  while (tcIsSyncing());
+  while (tcIsSyncing())
+    ;
 }
 
 void Timer5Class::tcReset()
 {
   // Reset TCx
   TC5->COUNT16.CTRLA.reg = TC_CTRLA_SWRST;
-  while (tcIsSyncing());
-  while (TC5->COUNT16.CTRLA.bit.SWRST);
+  while (tcIsSyncing())
+    ;
+  while (TC5->COUNT16.CTRLA.bit.SWRST)
+    ;
 }
 
 void Timer5Class::tcDisable()
 {
   // Disable TC5
   TC5->COUNT16.CTRLA.reg &= ~TC_CTRLA_ENABLE;
-  while (tcIsSyncing());
+  while (tcIsSyncing())
+    ;
 }
 
 void Timer5Class::attachInterrupt(voidFuncPtr callback)
@@ -127,22 +133,23 @@ void Timer5Class::attachInterrupt(voidFuncPtr callback)
 Timer5Class MyTimer5;
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void IRQ_HandlerTimer5 (void)
-{
+  void IRQ_HandlerTimer5(void)
+  {
 
     // Clear the interrupt
     TC5->COUNT16.INTFLAG.bit.MC0 = 1;
 
-    if (Timer_callBack != NULL) {
+    if (Timer_callBack != NULL)
+    {
       Timer_callBack();
-    }  
-  
-}
+    }
+  }
 
-void TC5_Handler (void) __attribute__ ((weak, alias("IRQ_HandlerTimer5")));
+  void TC5_Handler(void) __attribute__((weak, alias("IRQ_HandlerTimer5")));
 
 #ifdef __cplusplus
 }
