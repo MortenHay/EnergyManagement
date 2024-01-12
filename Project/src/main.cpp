@@ -10,7 +10,7 @@ using namespace std;
 #define ANALOG_SAMPLE_PASSTHROUGH 2
 
 // lcd object
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+LiquidCrystal lcd(8, 7, 5, 4, 3, 2);
 
 // Global variable for the frequency
 double frequency;
@@ -32,10 +32,9 @@ const float digitalSampleRate = 1000; // Sample rate for the digital wave counte
 // Analog zero cross variables
 volatile double Amplitude = 511; // Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-volatile float OldSample = 0;    // Creating val for low pass filter
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
-const float analogSampleRate = 1000; // Sample rate for the analog zero cross
+const float analogSampleRate = 10000; // Sample rate for the analog zero cross
 
 // Low pass filter variables
 const double cutOffFrequency = 100; // Cut off frequency for the low pass filter
@@ -53,11 +52,12 @@ const int kalibrering = 9;
 const int freqAlert = 7; // Creating val for frequency alert
 
 // RMS variables
-volatile float analogSquareSum = 0;     // Creating val for RMS calculation
-volatile unsigned long lastVoltage = 0; // Time of last interrupt
-volatile float rmsAnalog = 0;           // RMS voltage ouput
-volatile float rmsVoltage = 0;          // RMS voltage ouput
-const float voltageOffset = 1.65;       // Voltage offset for the board
+volatile float analogSquareSum = 0;                  // Creating val for RMS calculation
+volatile unsigned long lastVoltage = 0;              // Time of last interrupt
+volatile float rmsAnalog = 0;                        // RMS voltage ouput
+volatile float rmsVoltage = 0;                       // RMS voltage ouput
+const float voltageOffset = 0.9;                     // Voltage offset for the board
+const int analogOffset = voltageOffset / 3.3 * 1023; // Analog offset for the board
 
 // write me a wave counting function
 
@@ -116,8 +116,8 @@ void setup()
   lcdReset();
 
   Serial.println("Setting up interrupts");
-  setupDigitalWaveCounter(); // We set the initial operating mode to digital wave counter
-
+  setupAnalogSamplePassthrough();                                               // We set the initial operating mode to digital wave counter
+  attachInterrupt(digitalPinToInterrupt(modePin), switchOperatingMode, RISING); // We set the interrupt for switching operating modes
   Serial.println("Setup done!");
 }
 
@@ -132,7 +132,9 @@ void loop()
     lcdFrequency(frequency);
     rmsVoltage = analogToBoardVoltage(rmsAnalog);
     lcdVoltage(rmsVoltage);
-    // We wait 0.5 second before calculating the frequency
+    // FreqAlert(frequency);
+    // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
+    //  We wait 0.5 second before calculating the frequency
     waitMillis(500);
     break;
 
@@ -141,24 +143,23 @@ void loop()
     if (zerocrosstime >= (crosstimeN - 1))
     {
       frequency = analogFrequency();
-      rmsVoltage = analogToGridVoltage(rmsCalculation(counter * sampleTime));
+      rmsVoltage = 0; // analogToGridVoltage(rmsCalculation(counter * sampleTime));
       // We print the frequency to the serial monitor
-      Serial.println(frequency);
       lcdFrequency(frequency);
       lcdVoltage(rmsVoltage);
+      // FreqAlert(frequency);
+      // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
     }
+    waitMillis(5);
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
-    lcdVoltage(OldSample);
-    waitMillis(100);
+    // lcdVoltage(OldSample);
+    waitMillis(1000);
     break;
   default:
     // Default case to reset for security
     setupDigitalWaveCounter();
     break;
-
-    FreqAlert(frequency);
-    digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
   }
 
   // waitMillis(500); // We wait 0.5 second before calculating the frequency
@@ -245,7 +246,7 @@ void waitMicros(unsigned long us)
 // ---------------RMS functions----------------//
 void rmsSum(float value, unsigned long time)
 {
-  value -= 511;
+  value -= analogOffset;
   analogSquareSum += value * value * time;
 }
 
@@ -294,7 +295,7 @@ void lcdReset()
 void switchOperatingMode()
 {
 
-  if (millis() - switchingTime < 500)
+  if (millis() - switchingTime < 1000)
   {
     // debounce
     return;
@@ -358,7 +359,7 @@ void Timer5_digitalWaveCounter()
 
 void Timer5_analogSamplePassthrough()
 {
-  float newSample = lowPassFilter(analogRead(ADCPin), OldSample);
+  volatile float newSample = lowPassFilter(analogRead(ADCPin), OldSample);
   OldSample = newSample;
   analogWrite(DACPin, newSample);
 }
@@ -373,6 +374,7 @@ void setupDigitalWaveCounter()
   resetTimeArray();
   // We set our interrupt to trigger the interupt function when value reaches HIGH
   Serial.println("Setting up interrupt");
+  lcdReset();
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
   Serial.println("Setting up timer");
   setTimer5(digitalSampleRate, Timer5_digitalWaveCounter);
@@ -384,6 +386,7 @@ void setupAnalogZeroCross()
   operatingMode = ANALOG_ZERO_CROSS;
   // Detaching interrupt
   detachInterrupt(digitalPinToInterrupt(interruptPin));
+  lcdReset();
   counter = 0;
   setTimer5(analogSampleRate, Timer5_analogZeroCross);
 }
@@ -394,8 +397,11 @@ void setupAnalogSamplePassthrough()
   operatingMode = ANALOG_SAMPLE_PASSTHROUGH;
   // Detaching interrupt and resetting lcd
   detachInterrupt(digitalPinToInterrupt(interruptPin));
-  lcdReset();
-  lcdFrequency(0);
+  /* lcdReset();
+  lcdFrequency(0); */
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
 
   // Setting timer to analog sample rate and attaching interrupt
   setTimer5(analogSampleRate, Timer5_analogSamplePassthrough);
@@ -415,7 +421,7 @@ void setTimer5(float sampleRate, voidFuncPtr callback)
   MyTimer5.begin(sampleRate); // 200=for toggle every 5msec
   Serial.println("Timer begun");
   // define the interrupt callback function
-  MyTimer5.attachInterrupt(Timer5_analogZeroCross);
+  MyTimer5.attachInterrupt(callback);
   Serial.println("Interrupt attached");
   // start the timer
   MyTimer5.start();
