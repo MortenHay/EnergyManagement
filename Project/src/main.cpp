@@ -32,6 +32,9 @@ const float digitalSampleRate = 1000; // Sample rate for the digital wave counte
 // Analog zero cross variables
 volatile double Amplitude = 511; // Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
+
+volatile float OldSample = 0; //Creating val for low pass filter
+const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
 const float analogSampleRate = 1000; // Sample rate for the analog zero cross
@@ -43,10 +46,16 @@ double alpha;                       // Constant for the low pass filter
 float sampleTime;                   // Sample time for the low pass filter in seconds
 volatile float OldSample = 0;       // Creating val for low pass filter
 
+
 // Operating mode variables
 volatile byte operatingMode;              // Operating mode for the program
 volatile unsigned long switchingTime = 0; // Time of last switch between operating modes
 volatile float samrate;                   // Sampling rate for MyTimer5
+
+const int kalibrering = 9;
+const int freqAlert = 7; //Creating val for frequency alert
+
+
 
 // RMS variables
 volatile float analogSquareSum = 0;     // Creating val for RMS calculation
@@ -80,6 +89,7 @@ void setTimer5(float sampleRate, voidFuncPtr callback);
 void switchOperatingMode();
 
 // Initializing
+
 void setup()
 {
   analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
@@ -97,10 +107,10 @@ void setup()
   pinMode(modePin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  pinMode(switchPin, INPUT);
+  pinMode(freqAlert, OUTPUT);
+  pinMode(kalibrering, OUTPUT);
 
-  // define frequency of interrupt
-  MyTimer5.begin(1); // 200=for toggle every 5msec
+  MyTimer5.begin(1);
 
   // lcd code
   Serial.println("Setting up LCD");
@@ -109,7 +119,6 @@ void setup()
 
   Serial.println("Setting up interrupts");
   setupDigitalWaveCounter(); // We set the initial operating mode to digital wave counter
-  attachInterrupt(digitalPinToInterrupt(modePin), switchOperatingMode, RISING);
 
   Serial.println("Setup done!");
 }
@@ -149,6 +158,9 @@ void loop()
     // Default case to reset for security
     setupDigitalWaveCounter();
     break;
+
+    FreqAlert();
+    digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
   }
 
   // waitMillis(500); // We wait 0.5 second before calculating the frequency
@@ -257,6 +269,7 @@ float analogToGridVoltage(float analogValue)
   return 340 * ((analogValue / 1023));
 }
 
+
 //--------------------------LCD functions--------------------------//
 void lcdFrequency(double freq)
 {
@@ -284,11 +297,13 @@ void lcdReset()
 void switchOperatingMode()
 {
 
+
   if (millis() - switchingTime < 500)
   {
     // debounce
     return;
   }
+
 
   switch (operatingMode)
   {
@@ -314,7 +329,7 @@ void timeStamp()
 {
   unsigned long currentTime = micros();
   timeArray[currentIndex] = currentTime - lastTime;              // Save current time stamp in the array
-  rmsSum(analogRead(ADCPin), (currentTime - lastVoltage) * 1e6); // Lat voltage measurement
+  rmsSum(analogRead(ADCPin), (currentTime - lastVoltage) * 1e6); // Last voltage measurement
   rmsAnalog = rmsCalculation((currentTime - lastTime) * 1e6);
   lastTime = currentTime;
   if (++currentIndex == avgSampleLength) // Reset when the array is full
@@ -328,6 +343,7 @@ void Timer5_analogZeroCross()
   float newSample = lowPassFilter(analogRead(ADCPin), OldSample);
   rmsSum(newSample, sampleTime);
   counter++;
+
 
   if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
   {
@@ -367,6 +383,7 @@ void setupDigitalWaveCounter()
   Serial.println("Setting up timer");
   setTimer5(digitalSampleRate, Timer5_digitalWaveCounter);
 }
+
 
 void setupAnalogZeroCross()
 {
@@ -435,4 +452,20 @@ void AdcBooster()
   ADC->CTRLA.bit.ENABLE = 1;                     // Enable ADC
   while (ADC->STATUS.bit.SYNCBUSY == 1)
     ; // Wait for synchronization
+
+  
+// Part 10, frequency alert where the LED turns on and off in an interval
+void FreqAlert(){
+  if (freq <= 49.9) {
+
+    //FCR N skal opjustere
+    digitalWrite(freqAlert, LOW);
+
+  } else if (freq >= 50.1) {
+
+    //FCR N skal nedjusteres 
+    digitalWrite(freqAlert, HIGH);
+
+  }
+
 }
