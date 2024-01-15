@@ -50,7 +50,7 @@ volatile unsigned long switchingTime = 0; // Time of last switch between operati
 volatile float samrate;                   // Sampling rate for MyTimer5
 
 const int kalibrering = 9;
-const int freqAlert = 7; // Creating val for frequency alert
+const int freqAlert = A2; // Creating val for frequency alert
 
 // RMS variables
 volatile float analogSquareSum = 0;                  // Creating val for RMS calculation
@@ -452,15 +452,15 @@ void AdcBooster()
     ; // Wait for synchronization
 }
 // Part 10, frequency alert where the LED turns on and off in an interval
-void FreqAlert(float freq)
+void FreqAlert(float frequency)
 {
-  if (freq <= 49.9)
+  if (frequency <= 49.9)
   {
 
     // FCR N skal opjustere
     digitalWrite(freqAlert, LOW);
   }
-  else if (freq >= 50.1)
+  else if (frequency >= 50.1)
   {
 
     // FCR N skal nedjusteres
