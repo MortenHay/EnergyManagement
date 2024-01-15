@@ -13,7 +13,7 @@ using namespace std;
 LiquidCrystal lcd(8, 7, 5, 4, 3, 2);
 
 // Global variable for the frequency
-double frequency;
+float frequency;
 
 // Pin definitions
 const int interruptPin = 0; // Interrupt pin for the frequency counter
@@ -30,16 +30,16 @@ volatile unsigned long lastTime = 0;
 const float digitalSampleRate = 1000; // Sample rate for the digital wave counter
 
 // Analog zero cross variables
-volatile double Amplitude = 511; // Creating val for analog read
-volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-volatile double zerocrosstime = 0;
+volatile float Amplitude = 511; // Creating val for analog read
+volatile float crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
+volatile float zerocrosstime = 0;
 volatile int counter = 0;
 const float analogSampleRate = 10000; // Sample rate for the analog zero cross
 
 // Low pass filter variables
-const double cutOffFrequency = 100; // Cut off frequency for the low pass filter
+const float cutOffFrequency = 100;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
-double alpha;                       // Constant for the low pass filter
+float alpha;                        // Constant for the low pass filter
 float sampleTime;                   // Sample time for the low pass filter in seconds
 volatile float OldSample = 0;       // Creating val for low pass filter
 
@@ -56,15 +56,15 @@ volatile float analogSquareSum = 0;                  // Creating val for RMS cal
 volatile unsigned long lastVoltage = 0;              // Time of last interrupt
 volatile float rmsAnalog = 0;                        // RMS voltage ouput
 volatile float rmsVoltage = 0;                       // RMS voltage ouput
-const float voltageOffset = 0.9;                     // Voltage offset for the board
+const float voltageOffset = 0;                       // Voltage offset for the board
 const int analogOffset = voltageOffset / 3.3 * 1023; // Analog offset for the board
 
 // write me a wave counting function
 
 // Function declarations
 void timeStamp();
-double digitalFrequency();
-double analogFrequency();
+float digitalFrequency();
+float analogFrequency();
 void resetTimeArray();
 void AdcBooster();
 void waitMillis(unsigned long ms);
@@ -74,7 +74,7 @@ void rmsSum(float voltage, unsigned long time);
 float rmsCalculation(unsigned long period);
 float analogToBoardVoltage(float analogValue);
 float analogToGridVoltage(float analogValue);
-void lcdFrequency(double freq);
+void lcdFrequency(float freq);
 void lcdVoltage(float voltage);
 void lcdReset();
 void setupDigitalWaveCounter();
@@ -82,7 +82,7 @@ void setupAnalogZeroCross();
 void setupAnalogSamplePassthrough();
 void setTimer5(float sampleRate, voidFuncPtr callback);
 void switchOperatingMode();
-void lowPassFilterSetup(double period);
+void lowPassFilterSetup(float period);
 float lowPassFilter(float newSample, float previousSample);
 void FreqAlert(float freq);
 
@@ -191,7 +191,7 @@ void loop()
 
 // ---------------Frequency calculation functions-----------------//
 // Function that calculates the running average of the frequency
-double digitalFrequency()
+float digitalFrequency()
 {
   // We create a snapshot of the time stamp array to avoid the array being changed during the calculation
   unsigned long timeArraySnapshot[avgSampleLength];
@@ -205,12 +205,12 @@ double digitalFrequency()
   }
 
   // The frequency is calculated as the inverse of the average time difference
-  return double(1000000) * avgSampleLength / sum;
+  return float(1000000) * avgSampleLength / sum;
 }
 
-double analogFrequency()
+float analogFrequency()
 {
-  double freq = (samrate * (crosstimeN - 1) / (counter));
+  float freq = (samrate * (crosstimeN - 1) / (counter));
   counter = 0;
   zerocrosstime = 0;
   return freq;
@@ -223,10 +223,10 @@ float lowPassFilter(float newSample, float previousSample)
   return output;
 }
 
-void lowPassFilterSetup(double period)
+void lowPassFilterSetup(float period)
 {
-  double RC = 1 / (2 * pi * cutOffFrequency); // We calculate the time constant for the low pass filter
-  alpha = period / (sampleTime + RC);         // We calculate the constant for the low pass filter
+  float RC = 1 / (2 * pi * cutOffFrequency); // We calculate the time constant for the low pass filter
+  alpha = period / (sampleTime + RC);        // We calculate the constant for the low pass filter
 }
 
 // ---------------Wait functions as alternative to delay()----------------//
@@ -269,7 +269,7 @@ float analogToGridVoltage(float analogValue)
 }
 
 //--------------------------LCD functions--------------------------//
-void lcdFrequency(double freq)
+void lcdFrequency(float freq)
 {
   lcd.setCursor(6, 0);
   lcd.print(freq, 5);
