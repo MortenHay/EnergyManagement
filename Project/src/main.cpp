@@ -22,10 +22,10 @@ const int ADCPin = A1;      // ADC pin for input
 const int modePin = 6;      // Pin for switching between operating modes
 
 // Digital wave counter variables
-const unsigned int avgSampleLength = 20;           // Number og samples to average over in the running average
-volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
+const unsigned int avgSampleLength = 3;    // Number og samples to average over in the running average
+volatile float timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
 volatile unsigned int currentIndex = 0;
-volatile unsigned long lastTime = 0;
+volatile float lastTime = 0;
 volatile float lastPeriod = 0;
 const float digitalSampleRate = 1000; // Sample rate for the digital wave counter
 
@@ -54,10 +54,10 @@ const int RED = A4;
 // RMS variables
 volatile float analogSquareSum = 0;                  // Creating val for RMS calculation
 volatile float lastsquareSum = 0;                    //
-volatile unsigned long lastVoltage = 0;              // Time of last interrupt
+volatile float lastVoltage = 0;                      // Time of last interrupt
 volatile float rmsAnalog = 0;                        // RMS analog value ouput
 volatile float rmsVoltage = 0;                       // RMS voltage ouput
-const float voltageOffset = 0.9;                     // Voltage offset for the board
+const float voltageOffset = 1.65;                    // Voltage offset for the board
 const int analogOffset = voltageOffset / 3.3 * 1023; // Analog offset for the board
 
 // write me a wave counting function
@@ -132,16 +132,14 @@ void loop()
     // We calculate the frequency using the running average
     frequency = digitalFrequency();
     lcdFrequency(frequency);
-
     FreqAlert(frequency);
-
     rmsVoltage = analogToBoardVoltage(rmsCalculation(lastPeriod));
 
     lcdVoltage(rmsVoltage);
     // FreqAlert(frequency);
     // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
     //  We wait 0.5 second before calculating the frequency
-    waitMillis(250);
+    delay(500);
     break;
 
   case ANALOG_ZERO_CROSS:
@@ -154,13 +152,12 @@ void loop()
 
     // FreqAlert(frequency);
     // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
-    delay(250);
+    delay(500);
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
     digitalWrite(GREEN, LOW);
     digitalWrite(YELLOW, LOW);
-    digitalWrite(RED,LOW);
-
+    digitalWrite(RED, LOW);
 
     // lcdVoltage(OldSample);
     waitMillis(1000);
@@ -249,14 +246,13 @@ void lcdFrequency(float freq)
   lcd.print(freq, 4);
   lcd.setCursor(14, 0);
   lcd.print("Hz");
-
 }
 
 void lcdVoltage(float voltage)
 {
   lcd.setCursor(6, 1);
   lcd.print(voltage, 4);
-  lcd.setCursor(14, 1);
+  lcd.setCursor(15, 1);
   lcd.print("V");
 }
 
@@ -302,12 +298,12 @@ void switchOperatingMode()
 // ISR that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
 {
-  unsigned long currentTime = micros();
-  timeArray[currentIndex] = currentTime - lastTime;                    // Save current time stamp in the array
-  rmsSum(analogRead(ADCPin), float(currentTime - lastVoltage) * 1e6f); // Last voltage measurement
+  float currentTime = micros();
+  timeArray[currentIndex] = currentTime - lastTime;               // Save current time stamp in the array
+  rmsSum(analogRead(ADCPin), (currentTime - lastVoltage) * 1e6f); // Last voltage measurement
   lastsquareSum = analogSquareSum;
-  lastPeriod = currentTime - lastTime;
-  rmsAnalog = 0;
+  lastPeriod = (currentTime - lastTime) * 1e6f;
+  analogSquareSum = 0;
   lastTime = currentTime;
   if (++currentIndex == avgSampleLength) // Reset when the array is full
   {
@@ -383,14 +379,12 @@ void setupAnalogSamplePassthrough()
   operatingMode = ANALOG_SAMPLE_PASSTHROUGH;
   // Detaching interrupt and resetting lcd
   detachInterrupt(digitalPinToInterrupt(interruptPin));
-  /* lcdReset();
-  lcdFrequency(0); */
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
 
   // Setting timer to analog sample rate and attaching interrupt
   setTimer5(analogSampleRate, Timer5_analogSamplePassthrough);
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("See Oscilloscope");
 }
 
 void setTimer5(float sampleRate, voidFuncPtr callback)
@@ -441,23 +435,28 @@ void AdcBooster()
 // Part 10, frequency alert where the LED turns on and off in an interval
 void FreqAlert(float frequency)
 {
-  if (frequency > 49.9 && frequency < 50.1 && frequency != 0) {
+  if (frequency > 49.9 && frequency < 50.1 && frequency != 0)
+  {
     //
-    digitalWrite(GREEN, HIGH); //Green turns on
-    digitalWrite(YELLOW,LOW); //Yellow turns off
-    digitalWrite(RED, LOW); //Red turns off
-    
-  } else if ((frequency <= 49.9 && frequency > 49.75) || (frequency >=50.1 && frequency < 50.25)) {
+    digitalWrite(GREEN, HIGH); // Green turns on
+    digitalWrite(YELLOW, LOW); // Yellow turns off
+    digitalWrite(RED, LOW);    // Red turns off
+  }
+  else if ((frequency <= 49.9 && frequency > 49.75) || (frequency >= 50.1 && frequency < 50.25))
+  {
     //
-    digitalWrite(GREEN, LOW); //Green turns off
-    digitalWrite(YELLOW,HIGH); //Yellow turns on
-    digitalWrite(RED, LOW); //Red turns off
-
-  } else if (frequency <= 49.75 || frequency >= 50.25) {
+    digitalWrite(GREEN, LOW);   // Green turns off
+    digitalWrite(YELLOW, HIGH); // Yellow turns on
+    digitalWrite(RED, LOW);     // Red turns off
+  }
+  else if (frequency <= 49.75 || frequency >= 50.25)
+  {
     //
-    digitalWrite(GREEN, LOW); //Green turns off
-    digitalWrite(YELLOW,LOW); //Yellow turns off
-     digitalWrite(RED, HIGH); //Red turns on
-  } else {
+    digitalWrite(GREEN, LOW);  // Green turns off
+    digitalWrite(YELLOW, LOW); // Yellow turns off
+    digitalWrite(RED, HIGH);   // Red turns on
+  }
+  else
+  {
   }
 }
