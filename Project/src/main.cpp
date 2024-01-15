@@ -8,7 +8,7 @@ using namespace std;
 
 
 // Tester om lcd kan bruges
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+LiquidCrystal lcd(8, 7, 5, 4, 3, 2);
 const int switchPin = 6;
 int switchState = 0;
 int reply;
@@ -16,37 +16,38 @@ int reply;
 const unsigned int avgSampleLength = 3;            // Number og samples to average over in the running average
 
 volatile unsigned long timeArray[avgSampleLength]; // We create the empty time stamp array used for the interrupt
-double frequency;                                  // Global variable for the frequency
+float frequency;                                  // Global variable for the frequency
 unsigned int currentIndex = 0;                     // We create the empty time stamp array used for the interrupt
 const unsigned long ulongMax = 4294967295;         // Maximum value of unsigned long
 const unsigned long ulongThreashold = 4000000000;  // Threshold for when the time stamp array should be reset
 unsigned long lastTime = 0;
 
 
-const double cutOffFrequency = 100;  // Cut off frequency for the low pass filter
+const float cutOffFrequency = 100;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
-double alpha;                       // Constant for the low pass filter
+float alpha;                       // Constant for the low pass filter
 
 const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
-volatile double val = 0;                //Creating val for analog read
-const float Samrate = 1000; //Sampling rate for MyTimer5
-volatile double Amplitude = 511; //Creating val for analog read
-volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
-volatile double freq = 0; //Creating val for frequency
+volatile float val = 0;                //Creating val for analog read
+const float Samrate = 10000; //Sampling rate for MyTimer5
+volatile float Amplitude = 511; //Creating val for analog read
+volatile float offset = 0.9 * 1023 / 3.3;
+volatile float crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
+volatile float freq = 0; //Creating val for frequency
 volatile float newSample = 0; //Creating val for low pass filter 
 volatile float OldSample = 0; //Creating val for low pass filter
 const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
-volatile double zerocrosstime = 0;
+volatile float zerocrosstime = 0;
 volatile int counter = 0;
-volatile double calibratingFactor = 0; //Creating val for calibrating factor
+volatile float calibratingFactor = 0; //Creating val for calibrating factor
 
 const int kalibrering = 10;
 const int freqAlert = 7; //Creating val for frequency alert
 
 
-volatile double Analogarray[avgSampleLength];  //Creating array for analog input
+volatile float Analogarray[avgSampleLength];  //Creating array for analog input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
 
@@ -61,7 +62,7 @@ float OldtimeStamp = 0;
 
 // Function declarations
 void timeStamp();
-double averageFrequency();
+float averageFrequency();
 void resetTimeArray();
 void AdcBooster();
 void waitMillis(unsigned long ms);
@@ -93,7 +94,7 @@ void setup()
   pinMode(kalibrering, OUTPUT);
 
   //attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING); // We set our interrupt to trigger the interupt function when value reaches HIGH
-  double RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
+  float RC = 1 / (2 * pi * cutOffFrequency);                              // We calculate the time constant for the low pass filter
   alpha = sampleTime / (sampleTime + RC);                                  // We calculate the constant for the low pass filter
   AdcBooster();                                                             // We boost the ADC clock frequency to 2 MHz
   Serial.println("Setup done!");
@@ -123,14 +124,15 @@ void setup()
 void loop()
 {
 
-    Serial.println(freq);
+    Serial.println(freq,5);
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Value: ");
     lcd.setCursor(0,1);
     lcd.print(freq,5);
     //Calls the function where the LED turns on and off in an interval
-    FreqAlert();
+    //FreqAlert();12
+    delay(250);
   }
 
 // ISR that updates the time stamp array every time the interrupt pin goes HIGH
@@ -147,7 +149,7 @@ void timeStamp()
 }
 
 // Function that calculates the running average of the frequency
-double averageFrequency()
+float averageFrequency()
 {
   // We create a snapshot of the time stamp array to avoid the array being changed during the calculation
   unsigned long timeArraySnapshot[avgSampleLength];
@@ -161,7 +163,7 @@ double averageFrequency()
   }
 
   // The frequency is calculated as the inverse of the average time difference
-  return double(1000000) * avgSampleLength / sum;
+  return float(1000000) * avgSampleLength / sum;
 }
 
 // Debug function to reset the time stamp array to 0
@@ -216,17 +218,17 @@ void Timer5_IRQ() {
 
   float Newtimestamp = micros();
 
-  newSample = double(analogRead(ADCPin)) * alpha + OldSample * (1-alpha); // Data through low pass filter
+  newSample = float(analogRead(ADCPin)) * alpha + OldSample * (1-alpha); // Data through low pass filter
 
-  if(newSample > Amplitude/2  && OldSample < Amplitude/2) { // Detects zero crossing
+  if(newSample > offset  && OldSample < offset) { // Detects zero crossing
 
     Zerocross = Newtimestamp - (newSample/(newSample-OldSample)); //Calculates time stamp for zero crossing
     interval = Zerocross - PrevZerocross;
+    freq = (1/interval)*1e6; // Calculates frequency
+    PrevZerocross = Zerocross; // Updates previous zero crossing
   }
 
-  PrevZerocross = Zerocross; // Updates previous zero crossing
   OldSample = newSample; // Updates old sample
-  freq = (1/interval)*1e6; // Calculates frequency
   
   }
 
