@@ -51,6 +51,7 @@ volatile float samrate;                   // Sampling rate for MyTimer5
 
 const int kalibrering = 9;
 const int freqAlert = A2; // Creating val for frequency alert
+const int freqAlert2 = A3;
 
 // RMS variables
 volatile float analogSquareSum = 0;                  // Creating val for RMS calculation
@@ -107,6 +108,7 @@ void setup()
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
   pinMode(freqAlert, OUTPUT);
+  pinMode(freqAlert2, OUTPUT);
   pinMode(kalibrering, OUTPUT);
 
   MyTimer5.begin(1);
@@ -131,6 +133,7 @@ void loop()
     // We calculate the frequency using the running average
     frequency = digitalFrequency();
     lcdFrequency(frequency);
+    FreqAlert(frequency);
     rmsVoltage = analogToBoardVoltage(rmsAnalog);
     lcdVoltage(rmsVoltage);
     // FreqAlert(frequency);
@@ -145,12 +148,15 @@ void loop()
     // We print the frequency to the serial monitor
     lcdFrequency(frequency);
     lcdVoltage(rmsVoltage);
+    FreqAlert(frequency);
 
     // FreqAlert(frequency);
     // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
     delay(250);
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
+    digitalWrite(freqAlert2, LOW);
+    digitalWrite(freqAlert, LOW);
     // lcdVoltage(OldSample);
     waitMillis(1000);
     break;
@@ -285,7 +291,7 @@ void lcdReset()
   lcd.setCursor(0, 0);
   lcd.print("Freq: ");
   lcd.setCursor(0, 1);
-  lcd.print("Volt: ");
+  lcd.print("RMS: ");
 }
 
 //--------------------------ISR functions--------------------------//
@@ -454,16 +460,21 @@ void AdcBooster()
 // Part 10, frequency alert where the LED turns on and off in an interval
 void FreqAlert(float frequency)
 {
-  if (frequency <= 49.9)
+  if (frequency > 49.9 && frequency < 50.1 && frequency != 0)
   {
-
-    // FCR N skal opjustere
-    digitalWrite(freqAlert, LOW);
+    // FCR N 
+    digitalWrite(freqAlert, HIGH); //Green turns on
+    digitalWrite(freqAlert2, LOW); //Red turns off
+    
   }
-  else if (frequency >= 50.1)
+  else if (frequency <= 49.9 || frequency >=50.1)
   {
 
-    // FCR N skal nedjusteres
-    digitalWrite(freqAlert, HIGH);
+    // FCR D
+    digitalWrite(freqAlert2, HIGH); //Red turns on
+    digitalWrite(freqAlert, LOW); //Green turns off
+  } else {
+    digitalWrite(freqAlert2, LOW);
+    digitalWrite(freqAlert, LOW);
   }
 }
