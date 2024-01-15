@@ -33,7 +33,7 @@ const float digitalSampleRate = 1000; // Sample rate for the digital wave counte
 volatile float prevZeroCross = 0;
 volatile int counter = 0;
 volatile int lastCounter = 0;
-const float analogSampleRate = 10000; // Sample rate for the analog zero cross
+const float analogSampleRate = 15000; // Sample rate for the analog zero cross
 
 // Low pass filter variables
 const float cutOffFrequency = 100;  // Cut off frequency for the low pass filter
@@ -57,7 +57,7 @@ volatile float lastsquareSum = 0;                    //
 volatile float lastVoltage = 0;                      // Time of last interrupt
 volatile float rmsAnalog = 0;                        // RMS analog value ouput
 volatile float rmsVoltage = 0;                       // RMS voltage ouput
-const float voltageOffset = 1.65;                    // Voltage offset for the board
+const float voltageOffset = 0.9;                     // Voltage offset for the board
 const int analogOffset = voltageOffset / 3.3 * 1023; // Analog offset for the board
 
 // write me a wave counting function
