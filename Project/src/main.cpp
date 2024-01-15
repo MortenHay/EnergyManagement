@@ -279,13 +279,18 @@ float analogToGridVoltage(float analogValue)
 void lcdFrequency(float freq)
 {
   lcd.setCursor(6, 0);
-  lcd.print(freq, 5);
+  lcd.print(freq, 4);
+  lcd.setCursor(14, 0);
+  lcd.print("Hz");
+
 }
 
 void lcdVoltage(float voltage)
 {
   lcd.setCursor(6, 1);
-  lcd.print(voltage, 5);
+  lcd.print(voltage, 4);
+  lcd.setCursor(14, 1);
+  lcd.print("V");
 }
 
 void lcdReset()
@@ -469,13 +474,13 @@ void FreqAlert(float frequency)
     digitalWrite(YELLOW,LOW); //Yellow turns off
     digitalWrite(RED, LOW); //Red turns off
     
-  } else if (frequency <= 49.9 && frequency > 49.75 || frequency >=50.1 && frequency < 50.25) {
+  } else if ((frequency <= 49.9 && frequency > 49.75) || (frequency >=50.1 && frequency < 50.25)) {
     //
     digitalWrite(GREEN, LOW); //Green turns off
     digitalWrite(YELLOW,HIGH); //Yellow turns on
     digitalWrite(RED, LOW); //Red turns off
 
-  } else if (frequency < 49.75 || frequency > 50.25) {
+  } else if (frequency <= 49.75 || frequency >= 50.25) {
     //
     digitalWrite(GREEN, LOW); //Green turns off
     digitalWrite(YELLOW,LOW); //Yellow turns off
