@@ -31,7 +31,7 @@ const int interruptPin = 0; // Interrupt pin for the frequency counter
 const int DACPin = A0;      // DAC pin for output
 const int ADCPin = A1;      // ADC pin for input
 volatile double val = 0;                //Creating val for analog read
-const float Samrate = 10000; //Sampling rate for MyTimer5
+const float Samrate = 1000; //Sampling rate for MyTimer5
 volatile double Amplitude = 511; //Creating val for analog read
 volatile double crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 volatile double freq = 0; //Creating val for frequency
@@ -40,14 +40,24 @@ volatile float OldSample = 0; //Creating val for low pass filter
 const float sampleTime = 1/Samrate;   // Sample time for the low pass filter in seconds
 volatile double zerocrosstime = 0;
 volatile int counter = 0;
+volatile double calibratingFactor = 0; //Creating val for calibrating factor
 
-const int kalibrering = 9;
+const int kalibrering = 10;
 const int freqAlert = 7; //Creating val for frequency alert
 
 
 volatile double Analogarray[avgSampleLength];  //Creating array for analog input
 
 const unsigned long ulongThreasholdTest = 0; // Temp test value
+
+// Ny Zero crossing 
+float Zerocross = 0;
+float interval = 0;
+float PrevZerocross = 0;
+float OldtimeStamp = 0;
+
+
+
 
 // Function declarations
 void timeStamp();
@@ -89,7 +99,7 @@ void setup()
   Serial.println("Setup done!");
   
    // define frequency of interrupt
-	MyTimer5.begin(Samrate);  // 200=for toggle every 5msec
+	  MyTimer5.begin(Samrate);  // 200=for toggle every 5msec
 
     // define the interrupt callback function
     MyTimer5.attachInterrupt(Timer5_IRQ);
@@ -112,35 +122,16 @@ void setup()
 //Main loop
 void loop()
 {
-  //waitMillis(500); // We wait 0.5 second before calculating the frequency
-  // print and calculation of frequency
-
- // If function for analog calculating frequency
- // 1.0989010989 factor since MyTimer5 runs 91 times at a 100 times rate
- // 0.9739943508327652 factor for 1000Hz
- // 1.086840767 factor for 10000Hz
-  digitalWrite(kalibrering, HIGH); // skal måske fjernes, ikke testet endnu
-  if (zerocrosstime >= (crosstimeN)) {
-
-    freq = (Samrate*(crosstimeN)/(counter));
-
-    counter = 0;
-    zerocrosstime = 0;
 
     Serial.println(freq);
-    switchState = digitalRead(switchPin);
-    if(switchState){
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Value: ");
     lcd.setCursor(0,1);
     lcd.print(freq,5);
-    }
     //Calls the function where the LED turns on and off in an interval
     FreqAlert();
-    digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
   }
-}
 
 // ISR that updates the time stamp array every time the interrupt pin goes HIGH
 void timeStamp()
@@ -222,24 +213,22 @@ void waitMicros(unsigned long us)
 
 
 void Timer5_IRQ() {
-  
-  newSample = double(analogRead(ADCPin))*alpha + OldSample*(1-alpha); // Data through low pass filter
 
-    if(newSample >= Amplitude/2 && OldSample < Amplitude/2) { // Detects zero crossing
+  float Newtimestamp = micros();
 
-      counter++;
-      zerocrosstime++; // Counts zero crossings
+  newSample = double(analogRead(ADCPin)) * alpha + OldSample * (1-alpha); // Data through low pass filter
 
-    } else {
+  if(newSample > Amplitude/2  && OldSample < Amplitude/2) { // Detects zero crossing
 
-      counter++; // Counts number of samples (that aren't zero crossings)
-
-    }
-
-   OldSample = newSample; // Updates old sample
-
+    Zerocross = Newtimestamp - (newSample/(newSample-OldSample)); //Calculates time stamp for zero crossing
+    interval = Zerocross - PrevZerocross;
   }
 
+  PrevZerocross = Zerocross; // Updates previous zero crossing
+  OldSample = newSample; // Updates old sample
+  freq = (1/interval)*1e6; // Calculates frequency
+  
+  }
 
 
 
