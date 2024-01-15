@@ -49,9 +49,9 @@ volatile byte operatingMode;              // Operating mode for the program
 volatile unsigned long switchingTime = 0; // Time of last switch between operating modes
 volatile float samrate;                   // Sampling rate for MyTimer5
 
-const int kalibrering = 9;
-const int freqAlert = A2; // Creating val for frequency alert
-const int freqAlert2 = A3;
+const int GREEN = A2; // Creating val for frequency alert
+const int YELLOW = A3;
+const int RED = A4;
 
 // RMS variables
 volatile float analogSquareSum = 0;                  // Creating val for RMS calculation
@@ -107,9 +107,9 @@ void setup()
   pinMode(modePin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  pinMode(freqAlert, OUTPUT);
-  pinMode(freqAlert2, OUTPUT);
-  pinMode(kalibrering, OUTPUT);
+  pinMode(GREEN, OUTPUT);
+  pinMode(YELLOW, OUTPUT);
+  pinMode(RED, OUTPUT);
 
   MyTimer5.begin(1);
 
@@ -155,8 +155,11 @@ void loop()
     delay(250);
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
-    digitalWrite(freqAlert2, LOW);
-    digitalWrite(freqAlert, LOW);
+    digitalWrite(GREEN, LOW);
+    digitalWrite(YELLOW, LOW);
+    digitalWrite(RED,LOW);
+
+
     // lcdVoltage(OldSample);
     waitMillis(1000);
     break;
@@ -460,21 +463,23 @@ void AdcBooster()
 // Part 10, frequency alert where the LED turns on and off in an interval
 void FreqAlert(float frequency)
 {
-  if (frequency > 49.9 && frequency < 50.1 && frequency != 0)
-  {
-    // FCR N 
-    digitalWrite(freqAlert, HIGH); //Green turns on
-    digitalWrite(freqAlert2, LOW); //Red turns off
+  if (frequency > 49.9 && frequency < 50.1 && frequency != 0) {
+    //
+    digitalWrite(GREEN, HIGH); //Green turns on
+    digitalWrite(YELLOW,LOW); //Yellow turns off
+    digitalWrite(RED, LOW); //Red turns off
     
-  }
-  else if (frequency <= 49.9 || frequency >=50.1)
-  {
+  } else if (frequency <= 49.9 && frequency > 49.75 || frequency >=50.1 && frequency < 50.25) {
+    //
+    digitalWrite(GREEN, LOW); //Green turns off
+    digitalWrite(YELLOW,HIGH); //Yellow turns on
+    digitalWrite(RED, LOW); //Red turns off
 
-    // FCR D
-    digitalWrite(freqAlert2, HIGH); //Red turns on
-    digitalWrite(freqAlert, LOW); //Green turns off
+  } else if (frequency < 49.75 || frequency > 50.25) {
+    //
+    digitalWrite(GREEN, LOW); //Green turns off
+    digitalWrite(YELLOW,LOW); //Yellow turns off
+     digitalWrite(RED, HIGH); //Red turns on
   } else {
-    digitalWrite(freqAlert2, LOW);
-    digitalWrite(freqAlert, LOW);
   }
 }
