@@ -47,8 +47,9 @@ volatile byte operatingMode;              // Operating mode for the program
 volatile unsigned long switchingTime = 0; // Time of last switch between operating modes
 volatile float samrate;                   // Sampling rate for MyTimer5
 
-const int kalibrering = 9;
-const int freqAlert = 7; // Creating val for frequency alert
+const int GREEN = A2; // Creating val for frequency alert
+const int YELLOW = A3;
+const int RED = A4;
 
 // RMS variables
 volatile float analogSquareSum = 0;                  // Creating val for RMS calculation
@@ -105,8 +106,9 @@ void setup()
   pinMode(modePin, INPUT);
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
-  pinMode(freqAlert, OUTPUT);
-  pinMode(kalibrering, OUTPUT);
+  pinMode(GREEN, OUTPUT);
+  pinMode(YELLOW, OUTPUT);
+  pinMode(RED, OUTPUT);
 
   MyTimer5.begin(1);
 
@@ -130,7 +132,11 @@ void loop()
     // We calculate the frequency using the running average
     frequency = digitalFrequency();
     lcdFrequency(frequency);
+
+    FreqAlert(frequency);
+
     rmsVoltage = analogToBoardVoltage(rmsCalculation(lastPeriod));
+
     lcdVoltage(rmsVoltage);
     // FreqAlert(frequency);
     // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
@@ -144,12 +150,18 @@ void loop()
     // We print the frequency to the serial monitor
     lcdFrequency(frequency);
     lcdVoltage(rmsVoltage);
+    FreqAlert(frequency);
 
     // FreqAlert(frequency);
     // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
     delay(250);
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
+    digitalWrite(GREEN, LOW);
+    digitalWrite(YELLOW, LOW);
+    digitalWrite(RED,LOW);
+
+
     // lcdVoltage(OldSample);
     waitMillis(1000);
     break;
@@ -234,13 +246,18 @@ float analogToGridVoltage(float analogValue)
 void lcdFrequency(float freq)
 {
   lcd.setCursor(6, 0);
-  lcd.print(freq, 5);
+  lcd.print(freq, 4);
+  lcd.setCursor(14, 0);
+  lcd.print("Hz");
+
 }
 
 void lcdVoltage(float voltage)
 {
   lcd.setCursor(6, 1);
-  lcd.print(voltage, 5);
+  lcd.print(voltage, 4);
+  lcd.setCursor(14, 1);
+  lcd.print("V");
 }
 
 void lcdReset()
@@ -249,7 +266,7 @@ void lcdReset()
   lcd.setCursor(0, 0);
   lcd.print("Freq: ");
   lcd.setCursor(0, 1);
-  lcd.print("Volt: ");
+  lcd.print("RMS: ");
 }
 
 //--------------------------ISR functions--------------------------//
@@ -422,18 +439,25 @@ void AdcBooster()
     ; // Wait for synchronization
 }
 // Part 10, frequency alert where the LED turns on and off in an interval
-void FreqAlert(float freq)
+void FreqAlert(float frequency)
 {
-  if (freq <= 49.9)
-  {
+  if (frequency > 49.9 && frequency < 50.1 && frequency != 0) {
+    //
+    digitalWrite(GREEN, HIGH); //Green turns on
+    digitalWrite(YELLOW,LOW); //Yellow turns off
+    digitalWrite(RED, LOW); //Red turns off
+    
+  } else if ((frequency <= 49.9 && frequency > 49.75) || (frequency >=50.1 && frequency < 50.25)) {
+    //
+    digitalWrite(GREEN, LOW); //Green turns off
+    digitalWrite(YELLOW,HIGH); //Yellow turns on
+    digitalWrite(RED, LOW); //Red turns off
 
-    // FCR N skal opjustere
-    digitalWrite(freqAlert, LOW);
-  }
-  else if (freq >= 50.1)
-  {
-
-    // FCR N skal nedjusteres
-    digitalWrite(freqAlert, HIGH);
+  } else if (frequency <= 49.75 || frequency >= 50.25) {
+    //
+    digitalWrite(GREEN, LOW); //Green turns off
+    digitalWrite(YELLOW,LOW); //Yellow turns off
+     digitalWrite(RED, HIGH); //Red turns on
+  } else {
   }
 }
