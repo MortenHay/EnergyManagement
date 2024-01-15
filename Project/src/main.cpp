@@ -33,8 +33,9 @@ const float digitalSampleRate = 1000; // Sample rate for the digital wave counte
 volatile float Amplitude = 511; // Creating val for analog read
 volatile float crosstimeN = 50; // Creating a val for the number of zero crossings bore calculation
 volatile float zerocrosstime = 0;
+volatile float prevZeroCross = 0;
 volatile int counter = 0;
-const float analogSampleRate = 10000; // Sample rate for the analog zero cross
+const float analogSampleRate = 1000; // Sample rate for the analog zero cross
 
 // Low pass filter variables
 const float cutOffFrequency = 100;  // Cut off frequency for the low pass filter
@@ -116,7 +117,7 @@ void setup()
   lcdReset();
 
   Serial.println("Setting up interrupts");
-  setupAnalogSamplePassthrough();                                               // We set the initial operating mode to digital wave counter
+  setupAnalogZeroCross();                                                       // We set the initial operating mode to digital wave counter
   attachInterrupt(digitalPinToInterrupt(modePin), switchOperatingMode, RISING); // We set the interrupt for switching operating modes
   Serial.println("Setup done!");
 }
@@ -140,17 +141,14 @@ void loop()
 
   case ANALOG_ZERO_CROSS:
     // We calculate the frequency using the running average
-    if (zerocrosstime >= (crosstimeN - 1))
-    {
-      frequency = analogFrequency();
-      rmsVoltage = 0; // analogToGridVoltage(rmsCalculation(counter * sampleTime));
-      // We print the frequency to the serial monitor
-      lcdFrequency(frequency);
-      lcdVoltage(rmsVoltage);
-      // FreqAlert(frequency);
-      // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
-    }
-    waitMillis(5);
+    rmsVoltage = 0; // analogToGridVoltage(rmsCalculation(counter * sampleTime));
+    // We print the frequency to the serial monitor
+    lcdFrequency(frequency);
+    lcdVoltage(rmsVoltage);
+
+    // FreqAlert(frequency);
+    // digitalWrite(kalibrering, LOW); //// skal måske fjernes, ikke testet endnu
+    delay(250);
     break;
   case ANALOG_SAMPLE_PASSTHROUGH:
     // lcdVoltage(OldSample);
@@ -336,18 +334,20 @@ void timeStamp()
 
 void Timer5_analogZeroCross()
 {
-  float newSample = lowPassFilter(analogRead(ADCPin), OldSample);
-  rmsSum(newSample, sampleTime);
-  counter++;
+  float Newtimestamp = micros();
 
-  if (newSample >= Amplitude / 2 && OldSample < Amplitude / 2)
-  {
-    zerocrosstime++;
+  float newSample = lowPassFilter(analogRead(ADCPin), OldSample); // Data through low pass filter
+
+  if (newSample > analogOffset && OldSample < analogOffset)
+  { // Detects zero crossing
+
+    float zeroCross = Newtimestamp - (newSample / (newSample - OldSample)); // Calculates time stamp for zero crossing
+    float interval = zeroCross - prevZeroCross;
+    frequency = (1 / interval) * 1e6; // Calculates frequency
+    prevZeroCross = zeroCross;        // Updates previous zero crossing
   }
 
-  OldSample = newSample;
-
-  // analogWrite(DACPin,newSample);
+  OldSample = newSample; // Updates old sample
 }
 
 void Timer5_digitalWaveCounter()
@@ -387,7 +387,6 @@ void setupAnalogZeroCross()
   // Detaching interrupt
   detachInterrupt(digitalPinToInterrupt(interruptPin));
   lcdReset();
-  counter = 0;
   setTimer5(analogSampleRate, Timer5_analogZeroCross);
 }
 
