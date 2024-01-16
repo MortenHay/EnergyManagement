@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" modified="2024-01-16T21:34:49.327Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" etag="TDdl9Rbqz9suO7FpqZRK" version="22.1.18" type="github" pages="2">
+<mxfile host="app.diagrams.net" modified="2024-01-16T21:49:04.640Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" etag="EAKLbjyyImkQtxpYa3cq" version="22.1.18" type="github" pages="2">
   <diagram id="C5RBs43oDa-KdzZeNtuy" name="Page-1">
     <mxGraphModel dx="926" dy="806" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -156,6 +156,15 @@
         </mxCell>
         <mxCell id="4UzRuKjp4Zi57GAiIAzN-11" style="edgeStyle=none;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;fontSize=12;startSize=8;endSize=8;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="4UzRuKjp4Zi57GAiIAzN-8" target="4UzRuKjp4Zi57GAiIAzN-10">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="4UzRuKjp4Zi57GAiIAzN-14" style="edgeStyle=none;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=12;startSize=8;endSize=8;" edge="1" parent="WIyWlLk6GJQsqaUBKTNV-1" source="4UzRuKjp4Zi57GAiIAzN-12" target="4UzRuKjp4Zi57GAiIAzN-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="4UzRuKjp4Zi57GAiIAzN-12" value="Timer5 IRQ" style="html=1;dashed=0;whiteSpace=wrap;shape=mxgraph.dfd.start" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="30" y="710" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="4UzRuKjp4Zi57GAiIAzN-13" value="Read analog voltage value on ADC" style="rounded=1;whiteSpace=wrap;html=1;dashed=0;" vertex="1" parent="WIyWlLk6GJQsqaUBKTNV-1">
+          <mxGeometry x="130" y="695" width="120" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
