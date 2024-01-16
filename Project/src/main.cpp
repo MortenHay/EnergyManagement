@@ -21,9 +21,11 @@ const u_int8_t DACPin = A0;      // DAC pin for output
 const u_int8_t ADCPin = A1;      // ADC pin for input
 const u_int8_t modePin = 6;      // Pin for switching between operating modes
 // DFCR pins for frequency alert LEDs
-const u_int8_t GREEN = A2;
-const u_int8_t YELLOW = A3;
-const u_int8_t RED = A4;
+const u_int8_t REDPLUS = A2;
+const u_int8_t YELLOWPLUS = A3;
+const u_int8_t GREEN = A4;
+const u_int8_t YELLOWMINUS = A5;
+const u_int8_t REDMINUS = A6;
 
 // Digital wave counter variables
 const u_int8_t avgSampleLength = 3;        // Number og samples to average over in the running average
@@ -56,6 +58,7 @@ volatile float analogSquareSum = 0;                    // Value to incriment in 
 volatile float lastsquareSum = 0;                      // Flushed RMS value for full period
 volatile float lastVoltage = 0;                        // Time of last voltage measurement
 volatile float rmsAnalog = 0;                          // RMS analog value ouput
+float rmsVoltage = 0;                                  // RMS voltage value output
 const float voltageOffset = 0.9;                       // Voltage offset on the frequency generator
 const float analogOffset = voltageOffset / 3.3 * 1023; // Voltage offset converted to analog value
 
@@ -85,6 +88,7 @@ void switchOperatingMode();
 void lowPassFilterSetup(float period);
 float lowPassFilter(float newSample, float previousSample);
 void FreqAlert(float freq);
+u_int8_t lcdDigits(float value);
 
 // Initializing
 
@@ -101,7 +105,6 @@ void setup()
   analogWriteResolution(10); // We set the resolution of the DAC to 10 bit
   analogReadResolution(10);  // We set the resolution of the ADC to 10 bit
   AdcBooster();              // We boost the ADC clock frequency to 2 MHz
-
   // pins
   Serial.println("Setting up pins");
   pinMode(interruptPin, INPUT);
@@ -109,8 +112,10 @@ void setup()
   pinMode(DACPin, OUTPUT);
   pinMode(ADCPin, INPUT);
   pinMode(GREEN, OUTPUT);
-  pinMode(YELLOW, OUTPUT);
-  pinMode(RED, OUTPUT);
+  pinMode(YELLOWPLUS, OUTPUT);
+  pinMode(YELLOWMINUS, OUTPUT);
+  pinMode(REDPLUS, OUTPUT);
+  pinMode(REDMINUS, OUTPUT);
 
   // Timer5.begin() must be called before Timer5.end can be run in operating mode setup functions
   MyTimer5.begin(1);
@@ -141,7 +146,7 @@ void loop()
     FreqAlert(frequency);
 
     // Calculate RMS voltage from the last full period
-    float rmsVoltage = analogToBoardVoltage(rmsCalculation(lastPeriod));
+    rmsVoltage = analogToBoardVoltage(rmsCalculation(lastPeriod));
 
     // Print values to the lcd
     lcdFrequency(frequency);
@@ -158,7 +163,7 @@ void loop()
     The frequency variable is set in interrupt.
     */
     // RMS voltage from the last full period, assuming constant time between samples
-    float rmsVoltage = analogToBoardVoltage(rmsCalculation(lastCounter * sampleTime));
+    rmsVoltage = analogToBoardVoltage(rmsCalculation(lastCounter * sampleTime));
     // The frequency is compared to the DFCR requirements
     FreqAlert(frequency);
 
@@ -175,8 +180,10 @@ void loop()
     The frequency is not calculated in this mode.
     */
     digitalWrite(GREEN, LOW);
-    digitalWrite(YELLOW, LOW);
-    digitalWrite(RED, LOW);
+    digitalWrite(YELLOWPLUS, LOW);
+    digitalWrite(YELLOWMINUS, LOW);
+    digitalWrite(REDPLUS, LOW);
+    digitalWrite(REDMINUS, LOW);
 
     waitMillis(1000);
     break;
@@ -207,28 +214,53 @@ float digitalFrequency()
 }
 
 // Function to compare frequency to DFCR requirements and turn on LEDs accordingly
+// 49.75, 49.9, 50.1, 50.25
 void FreqAlert(float frequency)
 {
-  if (frequency > 49.9 && frequency < 50.1)
+  if (frequency < 49.75)
   {
-    // Withtin normal range
-    digitalWrite(GREEN, HIGH); // Green turns on
-    digitalWrite(YELLOW, LOW); // Yellow turns off
-    digitalWrite(RED, LOW);    // Red turns off
+    // Low restoration range
+    digitalWrite(GREEN, LOW);       // Green turns on
+    digitalWrite(YELLOWPLUS, LOW);  // Yellow turns off
+    digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
+    digitalWrite(REDPLUS, LOW);     // Red turns off
+    digitalWrite(REDMINUS, HIGH);   // Red turns off
   }
-  else if (frequency > 49.75 && frequency < 50.25)
+  else if (frequency < 49.9)
   {
-    // Risky range
-    digitalWrite(GREEN, LOW);   // Green turns off
-    digitalWrite(YELLOW, HIGH); // Yellow turns on
-    digitalWrite(RED, LOW);     // Red turns off
+    // Low disturbance range
+    digitalWrite(GREEN, LOW);        // Green turns on
+    digitalWrite(YELLOWPLUS, LOW);   // Yellow turns off
+    digitalWrite(YELLOWMINUS, HIGH); // Yellow turns off
+    digitalWrite(REDPLUS, LOW);      // Red turns off
+    digitalWrite(REDMINUS, LOW);     // Red turns off
+  }
+  else if (frequency < 50.1)
+  {
+    // Normal range
+    digitalWrite(GREEN, HIGH);      // Green turns on
+    digitalWrite(YELLOWPLUS, LOW);  // Yellow turns off
+    digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
+    digitalWrite(REDPLUS, LOW);     // Red turns off
+    digitalWrite(REDMINUS, LOW);    // Red turns off
+  }
+  else if (frequency < 50.25)
+  {
+    // High disturbance range
+    digitalWrite(GREEN, LOW);       // Green turns on
+    digitalWrite(YELLOWPLUS, HIGH); // Yellow turns off
+    digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
+    digitalWrite(REDPLUS, LOW);     // Red turns off
+    digitalWrite(REDMINUS, LOW);    // Red turns off
   }
   else
   {
-    // Dangerous range
-    digitalWrite(GREEN, LOW);  // Green turns off
-    digitalWrite(YELLOW, LOW); // Yellow turns off
-    digitalWrite(RED, HIGH);   // Red turns on
+    // Over restoration range
+    digitalWrite(GREEN, LOW);       // Green turns on
+    digitalWrite(YELLOWPLUS, LOW);  // Yellow turns off
+    digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
+    digitalWrite(REDPLUS, HIGH);    // Red turns off
+    digitalWrite(REDMINUS, LOW);    // Red turns off
   }
 }
 
@@ -298,18 +330,14 @@ float analogToGridVoltage(float analogValue)
 void lcdFrequency(float freq)
 {
   lcd.setCursor(6, 0);
-  lcd.print(freq, 4);
-  lcd.setCursor(14, 0);
-  lcd.print("Hz");
+  lcd.print(freq, lcdDigits(freq));
 }
 
 // Prints voltage values on second line of LCD
 void lcdVoltage(float voltage)
 {
   lcd.setCursor(6, 1);
-  lcd.print(voltage, 4);
-  lcd.setCursor(15, 1);
-  lcd.print("V");
+  lcd.print(voltage, lcdDigits(voltage));
 }
 
 // Resets LCD to titles on both lines
@@ -318,8 +346,28 @@ void lcdReset()
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Freq: ");
+  lcd.setCursor(14, 0);
+  lcd.print("Hz");
   lcd.setCursor(0, 1);
   lcd.print("RMS: ");
+  lcd.setCursor(14, 1);
+  lcd.print("V");
+}
+
+// Function to calculate number of digits to print on LCD
+u_int8_t lcdDigits(float value)
+{
+  // Base number of digits
+  u_int8_t digits = 4;
+  while (value >= 10)
+  { // Subtract a digit for each order of magnitude
+    value /= 10;
+    if (--digits == 0)
+    { // Break if we reach 0 digits
+      break;
+    }
+  }
+  return digits;
 }
 
 //--------------------------ISR functions--------------------------//
