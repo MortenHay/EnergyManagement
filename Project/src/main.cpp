@@ -26,6 +26,7 @@ const u_int8_t YELLOWPLUS = A3;
 const u_int8_t GREEN = A4;
 const u_int8_t YELLOWMINUS = A5;
 const u_int8_t REDMINUS = A6;
+const u_int8_t voltageBaseSwitchPin = 9;
 
 // Digital wave counter variables
 const u_int8_t avgSampleLength = 3;        // Number og samples to average over in the running average
@@ -61,6 +62,8 @@ volatile float rmsAnalog = 0;                          // RMS analog value ouput
 float rmsVoltage = 0;                                  // RMS voltage value output
 const float voltageOffset = 0.9;                       // Voltage offset on the frequency generator
 const float analogOffset = voltageOffset / 3.3 * 1023; // Voltage offset converted to analog value
+volatile bool useGridVoltage = false;                  // Flag for using grid voltage
+volatile unsigned long baseSwitchTime = 0;             // Time of last voltage switch for debounce
 
 // write me a wave counting function
 
@@ -89,6 +92,8 @@ void lowPassFilterSetup(float period);
 float lowPassFilter(float newSample, float previousSample);
 void FreqAlert(float freq);
 u_int8_t lcdDigits(float value);
+float analogToVoltage(float analogValue);
+void voltageBaseSwitch();
 
 // Initializing
 
@@ -125,8 +130,9 @@ void setup()
   lcd.begin(16, 2);
 
   Serial.println("Setting up interrupts");
-  setupDigitalWaveCounter();                                                    // Setup default operating mode
-  attachInterrupt(digitalPinToInterrupt(modePin), switchOperatingMode, RISING); // Setup interrupt for switching operating mode
+  setupDigitalWaveCounter();                                                               // Setup default operating mode
+  attachInterrupt(digitalPinToInterrupt(modePin), switchOperatingMode, RISING);            // Setup interrupt for switching operating mode
+  attachInterrupt(digitalPinToInterrupt(voltageBaseSwitchPin), voltageBaseSwitch, RISING); // Setup interrupt for switching operating mode
   Serial.println("Setup done!");
 }
 
@@ -146,7 +152,7 @@ void loop()
     FreqAlert(frequency);
 
     // Calculate RMS voltage from the last full period
-    rmsVoltage = analogToBoardVoltage(rmsCalculation(lastPeriod));
+    rmsVoltage = analogToVoltage(rmsCalculation(lastPeriod));
 
     // Print values to the lcd
     lcdFrequency(frequency);
@@ -163,7 +169,7 @@ void loop()
     The frequency variable is set in interrupt.
     */
     // RMS voltage from the last full period, assuming constant time between samples
-    rmsVoltage = analogToBoardVoltage(rmsCalculation(lastCounter * sampleTime));
+    rmsVoltage = analogToVoltage(rmsCalculation(lastCounter * sampleTime));
     // The frequency is compared to the DFCR requirements
     FreqAlert(frequency);
 
@@ -214,7 +220,6 @@ float digitalFrequency()
 }
 
 // Function to compare frequency to DFCR requirements and turn on LEDs accordingly
-// 49.75, 49.9, 50.1, 50.25
 void FreqAlert(float frequency)
 {
   if (frequency < 49.75)
@@ -313,6 +318,18 @@ float rmsCalculation(float period)
 }
 
 //--------------------------Analog to voltage--------------------------//
+float analogToVoltage(float analogValue)
+{
+  if (useGridVoltage)
+  {
+    return analogToGridVoltage(analogValue);
+  }
+  else
+  {
+    return analogToBoardVoltage(analogValue);
+  }
+}
+
 // Converts 0-1023 analog value to 0-3.3V
 float analogToBoardVoltage(float analogValue)
 {
@@ -322,7 +339,7 @@ float analogToBoardVoltage(float analogValue)
 // Converts 0-1023 analog value to 0-340V
 float analogToGridVoltage(float analogValue)
 {
-  return 340 * ((analogValue / 1023));
+  return 680 * ((analogValue / 1023));
 }
 
 //--------------------------LCD functions--------------------------//
@@ -462,6 +479,18 @@ void Timer5_analogSamplePassthrough()
   // Output to DAC
   analogWrite(DACPin, newSample);
   OldSample = newSample;
+}
+
+void voltageBaseSwitch()
+{
+  unsigned long now = millis();
+  if (millis() - baseSwitchTime < 500)
+  {
+    // debounce
+    return;
+  }
+  useGridVoltage = !useGridVoltage;
+  baseSwitchTime = now;
 }
 
 //--------------------------Mode setup functions--------------------------//
