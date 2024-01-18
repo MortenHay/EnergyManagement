@@ -26,6 +26,7 @@ const u_int8_t YELLOWPLUS = A3;
 const u_int8_t GREEN = A4;
 const u_int8_t YELLOWMINUS = A5;
 const u_int8_t REDMINUS = A6;
+const u_int8_t BLUE = 1;
 const u_int8_t voltageBaseSwitchPin = 9;
 
 // Digital wave counter variables
@@ -121,6 +122,7 @@ void setup()
   pinMode(YELLOWMINUS, OUTPUT);
   pinMode(REDPLUS, OUTPUT);
   pinMode(REDMINUS, OUTPUT);
+  pinMode(BLUE, OUTPUT);
 
   // Timer5.begin() must be called before Timer5.end can be run in operating mode setup functions
   MyTimer5.begin(1);
@@ -230,6 +232,7 @@ void FreqAlert(float frequency)
     digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
     digitalWrite(REDPLUS, LOW);     // Red turns off
     digitalWrite(REDMINUS, HIGH);   // Red turns off
+    digitalWrite(BLUE, LOW);        // Blue turns off
   }
   else if (frequency < 49.9)
   {
@@ -239,6 +242,7 @@ void FreqAlert(float frequency)
     digitalWrite(YELLOWMINUS, HIGH); // Yellow turns off
     digitalWrite(REDPLUS, LOW);      // Red turns off
     digitalWrite(REDMINUS, LOW);     // Red turns off
+    digitalWrite(BLUE, LOW);
   }
   else if (frequency < 50.1)
   {
@@ -257,6 +261,7 @@ void FreqAlert(float frequency)
     digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
     digitalWrite(REDPLUS, LOW);     // Red turns off
     digitalWrite(REDMINUS, LOW);    // Red turns off
+    digitalWrite(BLUE, HIGH);
   }
   else
   {
@@ -266,6 +271,7 @@ void FreqAlert(float frequency)
     digitalWrite(YELLOWMINUS, LOW); // Yellow turns off
     digitalWrite(REDPLUS, HIGH);    // Red turns off
     digitalWrite(REDMINUS, LOW);    // Red turns off
+    digitalWrite(BLUE, HIGH);
   }
 }
 
@@ -363,11 +369,11 @@ void lcdReset()
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Freq: ");
-  lcd.setCursor(14, 0);
+  lcd.setCursor(13, 0);
   lcd.print("Hz");
   lcd.setCursor(0, 1);
   lcd.print("RMS: ");
-  lcd.setCursor(14, 1);
+  lcd.setCursor(13, 1);
   lcd.print("V");
 }
 
@@ -503,7 +509,8 @@ void setupDigitalWaveCounter()
   Serial.println("Resetting");
   resetTimeArray();
   lcdReset();
-
+  lcd.setCursor(15, 1);
+  lcd.print("D");
   // We set our interrupt to trigger the interupt function when value reaches HIGH
   Serial.println("Setting up interrupt");
   attachInterrupt(digitalPinToInterrupt(interruptPin), timeStamp, RISING);
@@ -524,7 +531,8 @@ void setupAnalogZeroCross()
   Serial.println("Resetting");
   detachInterrupt(digitalPinToInterrupt(interruptPin));
   lcdReset();
-
+  lcd.setCursor(15, 1);
+  lcd.print("A");
   // Setting timer to analog sample rate and attaching main ISR
   Serial.println("Setting up timer");
   setTimer5(analogSampleRate, Timer5_analogZeroCross);
@@ -542,6 +550,8 @@ void setupAnalogSamplePassthrough()
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("See Oscilloscope");
+  lcd.setCursor(15, 1);
+  lcd.print("P");
 
   // Setting timer to analog sample rate and attaching interrupt
   Serial.println("Setting up timer");
