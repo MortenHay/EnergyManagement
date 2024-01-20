@@ -30,12 +30,12 @@ const u_int8_t BLUE = 1;
 const u_int8_t voltageBaseSwitchPin = 9;
 
 // Digital wave counter variables
-const u_int8_t avgSampleLength = 3;        // Number og samples to average over in the running average
+const u_int8_t avgSampleLength = 1;        // Number og samples to average over in the running average
 volatile float timeArray[avgSampleLength]; // Array of measurement intervals
 volatile u_int8_t currentIndex = 0;        // Current index in the time stamp array
 volatile float lastTime = 0;               // Time of last interrupt
 volatile float lastPeriod = 0;             // Length of last full period
-const float digitalSampleRate = 1000;      // ADC sample rate for RMS calculation
+const float digitalSampleRate = 10000;      // ADC sample rate for RMS calculation
 
 // Analog zero cross variables
 volatile float prevZeroCross = 0;     // Time of previous zero crossing
@@ -44,7 +44,7 @@ volatile int lastCounter = 0;         // Last counter for number of samples betw
 const float analogSampleRate = 15000; // Sample rate for the analog zero cross
 
 // Low pass filter variables
-const float cutOffFrequency = 100;  // Cut off frequency for the low pass filter
+const float cutOffFrequency = 1000;  // Cut off frequency for the low pass filter
 const float pi = 3.141592653589793; // constant pi
 float alpha;                        // Constant for the low pass filter
 float sampleTime;                   // Sample time for the low pass filter in seconds
@@ -61,7 +61,7 @@ volatile float lastsquareSum = 0;                      // Flushed RMS value for 
 volatile float lastVoltage = 0;                        // Time of last voltage measurement
 volatile float rmsAnalog = 0;                          // RMS analog value ouput
 float rmsVoltage = 0;                                  // RMS voltage value output
-const float voltageOffset = 0.9;                       // Voltage offset on the frequency generator
+const float voltageOffset = 1.65;                       // Voltage offset on the frequency generator
 const float analogOffset = voltageOffset / 3.3 * 1023; // Voltage offset converted to analog value
 volatile bool useGridVoltage = false;                  // Flag for using grid voltage
 volatile unsigned long baseSwitchTime = 0;             // Time of last voltage switch for debounce
@@ -443,10 +443,10 @@ void timeStamp()
 void Timer5_analogZeroCross()
 {
   float Newtimestamp = micros();
-
-  float newSample = lowPassFilter(analogRead(ADCPin), OldSample); // Analog sample through low pass filter
-  rmsSum(newSample, sampleTime);                                  // Send sample to RMS calculation
-  counter++;                                                      // Increment counter for number of samples between zero crossings
+  float unfilteredSample = analogRead(ADCPin);                  // Analog sample without low pass filter
+  float newSample = lowPassFilter(unfilteredSample, OldSample); // Analog sample through low pass filter
+  rmsSum(unfilteredSample, sampleTime);                         // Send sample to RMS calculation
+  counter++;                                                    // Increment counter for number of samples between zero crossings
 
   // Detects zero crossing if the new sample is above the offset and the old sample is below the offset
   if (newSample > analogOffset && OldSample < analogOffset)
